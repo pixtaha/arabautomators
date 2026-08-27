@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: var(--font-bricolage), var(--font-plex-arabic), system-ui, sans-serif;
+  --font-body: var(--font-plex-arabic), var(--font-bricolage), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-aa-green-50: #ecf7f2;
+  --color-aa-green-100: #cdeadf;
+  --color-aa-green-200: #9bd5c0;
+  --color-aa-green-300: #5fbb9e;
+  --color-aa-green-400: #219b79;
+  --color-aa-green-500: #00875f;
+  --color-aa-green-600: #007858;
+  --color-aa-green-700: #006048;
+  --color-aa-green-800: #004a38;
+  --color-aa-green-900: #003327;
+  --color-aa-green-950: #001f18;
+
+  --color-aa-amber-50: #fffae3;
+  --color-aa-amber-100: #fff0b0;
+  --color-aa-amber-200: #ffe470;
+  --color-aa-amber-300: #ffd82e;
+  --color-aa-amber-400: #f8c800;
+  --color-aa-amber-500: #e0b400;
+  --color-aa-amber-600: #b58f00;
+  --color-aa-amber-700: #836700;
+
+  --color-aa-neutral-25: #fcfcfc;
+  --color-aa-neutral-50: #f7f7f7;
+  --color-aa-neutral-100: #f4f4f4;
+  --color-aa-neutral-200: #e8e8e8;
+  --color-aa-neutral-300: #e4e4e4;
+  --color-aa-neutral-400: #d4d4d4;
+  --color-aa-neutral-500: #a3a3a3;
+  --color-aa-neutral-600: #747474;
+  --color-aa-neutral-700: #444444;
+  --color-aa-neutral-800: #303030;
+  --color-aa-neutral-900: #1a1a1a;
+  --color-aa-neutral-950: #0c0c0c;
+
+  --color-aa-red-50: #fef0ee;
+  --color-aa-red-500: #d92d20;
+  --color-aa-red-700: #a81d13;
+
+  --color-surface-page: var(--color-aa-neutral-25);
+  --color-surface-card: #ffffff;
+  --color-surface-sunken: var(--color-aa-neutral-100);
+  --color-surface-hover: var(--color-aa-neutral-50);
+  --color-surface-ink: var(--color-aa-neutral-950);
+  --color-surface-brand: var(--color-aa-green-600);
+  --color-surface-brand-hover: var(--color-aa-green-700);
+  --color-surface-brand-soft: var(--color-aa-green-50);
+  --color-surface-accent: var(--color-aa-amber-400);
+  --color-surface-accent-soft: var(--color-aa-amber-50);
+  --color-surface-danger-soft: var(--color-aa-red-50);
+
+  --color-text-strong: #000000;
+  --color-text-body: var(--color-aa-neutral-800);
+  --color-text-muted: var(--color-aa-neutral-600);
+  --color-text-faint: var(--color-aa-neutral-500);
+  --color-text-inverse: #ffffff;
+  --color-text-accent: var(--color-aa-green-700);
+
+  --color-border-hairline: var(--color-aa-neutral-300);
+  --color-border-hairline-strong: var(--color-aa-neutral-400);
+
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-card-inner: 12px;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-sheen: aa-sheen 6s var(--ease-smooth) infinite alternate;
+  --animate-sheen-slow: aa-sheen 7.8s var(--ease-smooth) infinite alternate;
+  --animate-sheen-ink: aa-sheen 5.1s var(--ease-smooth) infinite alternate;
+  --animate-pulse-ring: aa-pulse 2400ms var(--ease-smooth) infinite;
+  --animate-pulse-ring-slow: aa-pulse 2800ms var(--ease-smooth) infinite;
+  --animate-blink: aa-blink 1200ms var(--ease-smooth) infinite;
+  --animate-run: aa-run 2600ms var(--ease-smooth) infinite;
+}
+
+@keyframes aa-sheen {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+@keyframes aa-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 120, 88, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(0, 120, 88, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 120, 88, 0);
+  }
+}
+@keyframes aa-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes aa-run {
+  0% {
+    left: -18%;
+  }
+  100% {
+    left: 104%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+body {
+  background: var(--color-surface-page);
+  color: var(--color-text-body);
+}
+
+@layer base {
+  a {
+    color: var(--color-text-accent);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-aa-green-700);
+  }
+}
+
+.btn-sheen {
+  background-size: 260% 100%;
+}
+
+.bg-dots {
+  background-image: radial-gradient(#d9d9d9 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+.bg-dots-ink {
+  background-image: radial-gradient(#2e2e2e 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+.bg-grid {
+  background-image:
+    linear-gradient(#e4e4e4 1px, transparent 1px),
+    linear-gradient(90deg, #e4e4e4 1px, transparent 1px);
+  background-size:
+    100% 28px,
+    28px 100%;
+}
+.mask-fade-b {
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
