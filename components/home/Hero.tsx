@@ -1,5 +1,5 @@
-import { ButtonLink } from "@/components/ui/ButtonLink";
 import { WorkflowPreview } from "@/components/home/WorkflowPreview";
+import { HeroCta } from "@/components/home/HeroCta";
 
 export function Hero() {
   return (
@@ -24,12 +24,7 @@ export function Hero() {
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <ButtonLink href="#course" variant="primary" size="lg">
-              Discover the course
-            </ButtonLink>
-            <ButtonLink href="#workflow" variant="secondary" size="lg">
-              See a workflow
-            </ButtonLink>
+            <HeroCta />
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs text-text-muted">

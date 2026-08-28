@@ -1,8 +1,18 @@
 import Image from "next/image";
 
 const team = [
-  { name: "Pixtaha", role: "AI automation engineer" },
-  { name: "Abdallah Hellal", role: "AI automation engineer" },
+  {
+    name: "Pixtaha",
+    role: "AI automation engineer",
+    linkedin: "https://www.linkedin.com/in/pixtaha",
+    tiktok: "https://www.tiktok.com/@pixtaha.dev",
+  },
+  {
+    name: "Abdallah Hellal",
+    role: "AI automation engineer",
+    linkedin: "https://www.linkedin.com/in/abdallah-hilal/",
+    tiktok: "https://www.tiktok.com/@abdallah_helal_ai",
+  },
 ];
 
 function LinkedInIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -79,15 +89,19 @@ export function Footer() {
               </div>
               <div className="flex gap-2">
                 <a
-                  href="#"
-                  aria-label="LinkedIn"
+                  href={person.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${person.name} on LinkedIn`}
                   className="grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-surface-brand text-white transition-colors hover:bg-aa-green-700"
                 >
                   <LinkedInIcon />
                 </a>
                 <a
-                  href="#"
-                  aria-label="TikTok"
+                  href={person.tiktok}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${person.name} on TikTok`}
                   className="grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-white text-black transition-opacity hover:opacity-[.82]"
                 >
                   <TikTokIcon />
