@@ -1,7 +1,7 @@
 const stats = [
   { value: "32", label: "Seats taken · interview passed" },
   { value: "47", label: "Waiting for an interview" },
-  { value: "06", label: "Sections · one workflow each" },
+  { value: "11", label: "Sections · one workflow each" },
   { value: "6", suffix: " weeks", label: "Live, in Arabic" },
 ];
 
