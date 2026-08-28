@@ -1,0 +1,27 @@
+services:
+  arab-automators-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Inlined into the client bundle at build time - not secrets.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    restart: unless-stopped
+    environment:
+      # Server-only secret - runtime env var, never a build arg.
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    expose:
+      - "3000"
+    # No `ports:` mapping - Traefik reaches the container over the
+    # shared network below and routes to it by container port 3000.
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.arab-automators-web.rule=Host(`example.com`)"
+      - "traefik.http.services.arab-automators-web.loadbalancer.server.port=3000"
+
+networks:
+  traefik:
+    external: true
