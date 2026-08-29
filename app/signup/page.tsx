@@ -189,6 +189,7 @@ export default function SignupPage() {
       password,
       options: {
         data: { username: username.trim() },
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     });
 

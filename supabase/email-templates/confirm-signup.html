@@ -1,0 +1,128 @@
+<!--
+  Arab Automators — "Confirm signup" transactional email
+  Paste this whole file into Supabase Dashboard → Authentication → Email Templates → Confirm signup.
+  {{ .ConfirmationURL }} is Supabase's template variable — leave it exactly as-is.
+
+  Built table-based with inline CSS for Outlook/Gmail/Apple Mail compatibility.
+  The only <style> block below contains nothing but a responsive @media query;
+  every visual style is also set inline so the email still renders correctly
+  end-to-end in clients that strip <style> blocks entirely.
+-->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Confirm your email</title>
+<!--[if mso]>
+<noscript>
+<xml>
+<o:OfficeDocumentSettings>
+<o:PixelsPerInch>96</o:PixelsPerInch>
+</o:OfficeDocumentSettings>
+</xml>
+</noscript>
+<![endif]-->
+<style>
+  @media only screen and (max-width: 600px) {
+    .aa-container { width: 100% !important; max-width: 100% !important; }
+    .aa-px { padding-left: 24px !important; padding-right: 24px !important; }
+    .aa-headline { font-size: 24px !important; line-height: 30px !important; }
+    .aa-button-td, .aa-button-a { display: block !important; width: 100% !important; box-sizing: border-box !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background-color:#ffffff; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+  <!-- Preheader (hidden preview text) -->
+  <div style="display:none; max-height:0; max-width:0; overflow:hidden; opacity:0; font-size:1px; line-height:1px; color:#ffffff;">
+    Confirm your email to activate your Arab Automators account.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+
+        <table role="presentation" class="aa-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+
+          <!-- Logo / wordmark -->
+          <tr>
+            <td align="center" class="aa-px" style="padding-bottom:28px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right:10px;">
+                    <img src="data:image/png;base64,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" width="34" height="34" alt="Arab Automators" style="display:block; width:34px; height:34px; border:0; outline:none; text-decoration:none;">
+                  </td>
+                  <td valign="middle">
+                    <span style="font-family:Arial, Helvetica, sans-serif; font-size:22px; font-weight:800; letter-spacing:-0.02em; color:#000000;">
+                      <span style="color:#007858;">A</span>rab
+                      <span style="color:#007858;">A</span>utomators
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="aa-px" align="center" style="padding:48px 48px 16px 48px;">
+                    <h1 class="aa-headline" style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:28px; line-height:34px; font-weight:800; letter-spacing:-0.02em; color:#000000; text-align:center;">
+                      Confirm your email<span style="color:#007858;">.</span>
+                    </h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="aa-px" align="center" style="padding:0 48px 32px 48px;">
+                    <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:24px; color:#303030; text-align:center;">
+                      Tap the button below to confirm your email and activate your Arab Automators account.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:0 48px 40px 48px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="aa-button-td" align="center" bgcolor="#007858" style="border-radius:8px; background-color:#007858;">
+                          <a href="{{ .ConfirmationURL }}" target="_blank" class="aa-button-a" style="display:inline-block; padding:14px 36px; font-family:Arial, Helvetica, sans-serif; font-size:16px; font-weight:700; color:#ffffff; text-decoration:none; border-radius:8px; background-color:#007858;">
+                            Confirm my account
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="aa-px" align="center" style="padding:32px 48px 0 48px;">
+              <p style="margin:0 0 12px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:20px; color:#747474; text-align:center;">
+                Button not working? Copy and paste this link into your browser:
+              </p>
+              <p style="margin:0 0 24px 0; font-family:Arial, Helvetica, sans-serif; font-size:13px; line-height:20px; color:#007858; text-align:center; word-break:break-all;">
+                <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#007858; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </p>
+              <p style="margin:0 0 6px 0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; color:#a3a3a3; text-align:center;">
+                If you didn't request this, you can safely ignore this email.
+              </p>
+              <p style="margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; color:#a3a3a3; text-align:center;">
+                &copy; 2026 Arab Automators
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
