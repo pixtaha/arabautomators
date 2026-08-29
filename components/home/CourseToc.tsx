@@ -30,7 +30,7 @@ export function CourseToc() {
       </div>
 
       <div
-        className="grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+        className="grid transition-[grid-template-rows,opacity] duration-500 ease-in-out"
         style={{ gridTemplateRows: open ? "1fr" : "0fr", opacity: open ? 1 : 0 }}
       >
         <div className="min-h-0 overflow-hidden">

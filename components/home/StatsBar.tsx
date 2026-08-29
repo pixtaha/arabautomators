@@ -1,11 +1,29 @@
-const stats = [
-  { value: "32", label: "Seats taken · interview passed" },
-  { value: "47", label: "Waiting for an interview" },
-  { value: "11", label: "Sections · one workflow each" },
-  { value: "6", suffix: " weeks", label: "Live, in Arabic" },
-];
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export function StatsBar() {
+async function getActiveStudentCount() {
+  const supabase = createAdminClient();
+  const { count, error } = await supabase
+    .from("students")
+    .select("*", { count: "exact", head: true })
+    .eq("is_active", true);
+
+  if (error) return null;
+  return count ?? 0;
+}
+
+export async function StatsBar() {
+  const activeStudentCount = await getActiveStudentCount();
+
+  const stats = [
+    {
+      value: activeStudentCount !== null ? String(activeStudentCount) : "—",
+      label: "Seats taken · interview passed",
+    },
+    { value: "47", label: "Waiting to next round" },
+    { value: "11", label: "Sections · one workflow each" },
+    { value: "6", suffix: " weeks", label: "Live, in Arabic" },
+  ];
+
   return (
     <section className="border-y border-border-hairline bg-surface-card">
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6">

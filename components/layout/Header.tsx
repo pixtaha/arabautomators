@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 
 export function Header() {
   return (
@@ -17,9 +17,9 @@ export function Header() {
           </span>
         </div>
         <nav className="flex flex-wrap items-center gap-4 sm:gap-7">
-          <Button variant="secondary" size="md">
-            Login
-          </Button>
+          <ButtonLink href="/help" variant="ghost" size="md">
+            Help
+          </ButtonLink>
         </nav>
       </div>
     </header>
