@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { courseModules } from "@/data/courseModules";
 
 export function CourseToc() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   return (
     <section
@@ -18,10 +18,9 @@ export function CourseToc() {
             Table of contents
           </h2>
           <p className="max-w-[60ch] text-[15px] leading-relaxed text-text-muted">
-            Eleven sections. The first half is plumbing that runs without you: webhooks,
-            databases, WhatsApp, production workflows that recover from their own errors. The
-            second half is agents: your first one, RAG and sub-agents, conversational AI, and
-            Claude Code. You finish by taking one idea to production.
+            Eleven sections. First half: plumbing that runs without you — webhooks, databases,
+            WhatsApp, self-healing workflows. Second half: agents, RAG, conversational AI, Claude
+            Code. You finish by shipping one idea to production.
           </p>
         </div>
         <Button variant="secondary" size="md" onClick={() => setOpen((v) => !v)}>

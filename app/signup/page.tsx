@@ -249,6 +249,9 @@ export default function SignupPage() {
           We sent a confirmation email to <span className="font-semibold">{email.trim()}</span>. Click the
           link inside to activate your account.
         </FormBanner>
+        <p className="mt-3 text-sm text-text-muted">
+          Didn&apos;t receive it? Check your spam/junk folder.
+        </p>
         {avatarError && (
           <div className="mt-3">
             <FormBanner tone="error">{avatarError}</FormBanner>
