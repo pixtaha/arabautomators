@@ -354,7 +354,7 @@ export default function SignupPage() {
               <div className="grid h-14 w-14 flex-none place-items-center overflow-hidden rounded-full border border-border-hairline-strong bg-surface-sunken">
                 {avatarPreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarPreview} alt="" className="h-full w-full object-cover" />
+                  <img src={avatarPreview} alt="" className="h-full w-full object-cover object-center" />
                 ) : (
                   <span className="font-display text-lg font-bold text-text-faint">
                     {username.trim().charAt(0).toUpperCase() || "?"}

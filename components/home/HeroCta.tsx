@@ -48,7 +48,7 @@ export function HeroCta() {
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          <img src={avatarUrl} alt="" className="h-full w-full object-cover object-center" />
         ) : (
           initial
         )}
