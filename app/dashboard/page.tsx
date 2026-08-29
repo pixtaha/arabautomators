@@ -9,6 +9,8 @@ import { courseModules } from "@/data/courseModules";
 import { ProgressCard } from "@/components/dashboard/ProgressCard";
 import { PointsCard } from "@/components/dashboard/PointsCard";
 import { LeaderboardCard } from "@/components/dashboard/LeaderboardCard";
+import { CourseModulesCard } from "@/components/dashboard/CourseModulesCard";
+import { N8nStatusCard } from "@/components/dashboard/N8nStatusCard";
 
 // Flip to false to disable the "Go to course" button again without touching its logic.
 const COURSE_ACCESS_ENABLED = true;
@@ -57,7 +59,6 @@ export default function DashboardPage() {
   }
 
   const username = (user.user_metadata?.username as string | undefined) ?? user.email ?? "there";
-  const nextModule = courseModules[0];
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
@@ -84,24 +85,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-6">
               <ProgressCard percent={DEMO_PROGRESS_PERCENT} />
 
-              <div
-                id="continue-course"
-                className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card"
-              >
-                <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                  Continue where you left off
-                </span>
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-card-inner border border-border-hairline bg-surface-sunken px-5 py-4">
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-[15px] text-surface-brand">{nextModule.no}</span>
-                    <span className="text-[15px] font-semibold text-text-strong">{nextModule.title}</span>
-                  </div>
-                  <span className="font-mono text-[10px] tracking-widest text-text-muted uppercase">
-                    Available Sep 5, 2026
-                  </span>
-                </div>
-                <p className="text-xs text-text-muted">Demo placeholder — no course content exists yet.</p>
-              </div>
+              <CourseModulesCard modules={courseModules} />
 
               {COURSE_ACCESS_ENABLED ? (
                 <a
@@ -126,6 +110,7 @@ export default function DashboardPage() {
 
             <div className="flex flex-col gap-6">
               <PointsCard points={DEMO_POINTS} maxPoints={DEMO_MAX_POINTS} />
+              <N8nStatusCard />
               <LeaderboardCard entries={DEMO_LEADERBOARD} />
             </div>
           </div>

@@ -40,9 +40,8 @@ export async function Hero() {
           </h1>
 
           <p className="max-w-[52ch] text-base leading-relaxed text-text-body text-pretty sm:text-lg">
-            Six weeks, live, in Arabic. You build real client-grade workflows from the first
-            session, break them on purpose, then make them recover on their own. No heavy coding
-            background needed — just a laptop and the drive to build.
+            Six weeks, live, in Arabic. Not easy, not impossible. It takes discipline to show up
+            every session and keep building. No heavy coding background needed, just consistency.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
