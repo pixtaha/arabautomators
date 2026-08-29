@@ -33,7 +33,7 @@ export async function StatsBar() {
               index < stats.length - 1 ? "border-r border-border-hairline" : ""
             } ${index === 0 ? "pl-0" : "pl-6"}`}
           >
-            <div className="font-display text-[30px] font-extrabold tracking-tighter text-text-strong sm:text-[42px]">
+            <div className="cursor-default font-display text-[30px] font-extrabold tracking-tighter text-text-strong transition-colors duration-300 ease-out hover:text-surface-brand sm:text-[42px]">
               {stat.value}
               {stat.suffix && <span className="text-2xl">{stat.suffix}</span>}
             </div>

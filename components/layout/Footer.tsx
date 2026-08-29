@@ -71,7 +71,7 @@ export function Footer() {
           {team.map((person) => (
             <div
               key={person.name}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 border-l-4 border-l-surface-brand bg-white/10 px-5 py-[18px] backdrop-blur-md"
+              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 border-l-4 border-l-surface-brand bg-white/10 px-5 py-[18px] backdrop-blur-md transition-colors duration-200 hover:bg-white/[.14]"
             >
               <div className="flex flex-col gap-1">
                 <span className="font-display text-[17px] font-bold text-white">{person.name}</span>
@@ -83,7 +83,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`${person.name} on LinkedIn`}
-                  className="grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-surface-brand text-white transition-colors hover:bg-aa-green-700"
+                  className="grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-surface-brand text-white transition-[background-color,transform] duration-150 hover:-translate-y-0.5 hover:bg-aa-green-700"
                 >
                   <LinkedInIcon />
                 </a>
@@ -92,7 +92,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`${person.name} on TikTok`}
-                  className="grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-white text-black transition-opacity hover:opacity-[.82]"
+                  className="grid h-[38px] w-[38px] place-items-center rounded-[10px] bg-white text-black transition-[opacity,transform] duration-150 hover:-translate-y-0.5 hover:opacity-[.82]"
                 >
                   <TikTokIcon />
                 </a>
