@@ -6,9 +6,16 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { courseModules } from "@/data/courseModules";
+import { ProgressCard } from "@/components/dashboard/ProgressCard";
+import { PointsCard } from "@/components/dashboard/PointsCard";
+import { LeaderboardCard } from "@/components/dashboard/LeaderboardCard";
+
+// Flip to false to disable the "Go to course" button again without touching its logic.
+const COURSE_ACCESS_ENABLED = true;
 
 const DEMO_PROGRESS_PERCENT = 15;
 const DEMO_POINTS = 340;
+const DEMO_MAX_POINTS = 5000;
 
 const DEMO_LEADERBOARD = [
   { username: "sara_automates", points: 1240 },
@@ -75,27 +82,12 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                    Overall progress
-                  </span>
-                  <span className="font-mono text-[11px] text-text-muted">
-                    {DEMO_PROGRESS_PERCENT}% · demo data
-                  </span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-sunken">
-                  <div
-                    className="h-full rounded-full bg-surface-brand"
-                    style={{ width: `${DEMO_PROGRESS_PERCENT}%` }}
-                  />
-                </div>
-                <p className="text-xs text-text-muted">
-                  Demo data — will show your real progress once the course starts.
-                </p>
-              </div>
+              <ProgressCard percent={DEMO_PROGRESS_PERCENT} />
 
-              <div className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
+              <div
+                id="continue-course"
+                className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card"
+              >
                 <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
                   Continue where you left off
                 </span>
@@ -111,59 +103,30 @@ export default function DashboardPage() {
                 <p className="text-xs text-text-muted">Demo placeholder — no course content exists yet.</p>
               </div>
 
-              <div
-                aria-disabled="true"
-                className="flex min-h-[64px] cursor-not-allowed items-center justify-center rounded-2xl bg-[linear-gradient(100deg,#006A4E_0%,#007858_26%,#109B75_50%,#007858_74%,#006A4E_100%)] bg-[length:260%_100%] px-6 py-4 text-center [animation:aa-sheen_5.1s_var(--ease-smooth)_infinite_alternate,aa-pulse_2800ms_var(--ease-smooth)_infinite]"
-              >
-                <span className="font-display text-base font-extrabold tracking-tight text-white">
-                  Go to course — starts September 5, 2026
-                </span>
-              </div>
+              {COURSE_ACCESS_ENABLED ? (
+                <a
+                  href="#continue-course"
+                  className="flex min-h-[64px] cursor-pointer items-center justify-center rounded-2xl bg-[linear-gradient(100deg,#006A4E_0%,#007858_26%,#109B75_50%,#007858_74%,#006A4E_100%)] bg-[length:260%_100%] px-6 py-4 text-center transition-transform duration-200 ease-[var(--ease-smooth)] [animation:aa-sheen_5.1s_var(--ease-smooth)_infinite_alternate,aa-pulse_2800ms_var(--ease-smooth)_infinite] hover:scale-[1.01]"
+                >
+                  <span className="font-display text-base font-extrabold tracking-tight text-white">
+                    Go to course — starts September 5, 2026
+                  </span>
+                </a>
+              ) : (
+                <div
+                  aria-disabled="true"
+                  className="flex min-h-[64px] cursor-not-allowed items-center justify-center rounded-2xl bg-[linear-gradient(100deg,#006A4E_0%,#007858_26%,#109B75_50%,#007858_74%,#006A4E_100%)] bg-[length:260%_100%] px-6 py-4 text-center [animation:aa-sheen_5.1s_var(--ease-smooth)_infinite_alternate,aa-pulse_2800ms_var(--ease-smooth)_infinite]"
+                >
+                  <span className="font-display text-base font-extrabold tracking-tight text-white">
+                    Go to course — starts September 5, 2026
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
-                <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                  Your points · demo data
-                </span>
-                <span className="font-display text-[36px] font-extrabold tracking-tight text-text-strong">
-                  {DEMO_POINTS}
-                </span>
-                <p className="text-xs text-text-muted">
-                  Preview only — real points start counting once live sessions begin.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                    Top 10 leaderboard
-                  </span>
-                  <span className="font-mono text-[10px] tracking-widest text-text-muted uppercase">Demo</span>
-                </div>
-                <div className="flex flex-col">
-                  {DEMO_LEADERBOARD.map((entry, index) => (
-                    <div
-                      key={entry.username}
-                      className={`flex items-center gap-3 py-2.5 ${
-                        index < DEMO_LEADERBOARD.length - 1 ? "border-b border-border-hairline" : ""
-                      }`}
-                    >
-                      <span className="w-5 flex-none font-mono text-[11px] text-text-faint">{index + 1}</span>
-                      <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-surface-brand-soft font-display text-xs font-bold text-text-accent">
-                        {entry.username.charAt(0).toUpperCase()}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-strong">
-                        @{entry.username}
-                      </span>
-                      <span className="font-mono text-xs text-text-muted">{entry.points} pts</span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-text-muted">
-                  Placeholder rankings — will populate with real students once live sessions begin.
-                </p>
-              </div>
+              <PointsCard points={DEMO_POINTS} maxPoints={DEMO_MAX_POINTS} />
+              <LeaderboardCard entries={DEMO_LEADERBOARD} />
             </div>
           </div>
         </div>

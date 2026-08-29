@@ -148,6 +148,17 @@
     transform: translateY(0);
   }
 }
+@keyframes aa-digit-flicker {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.45;
+    transform: translateY(-1px);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -204,6 +215,11 @@ body {
 
 .reveal-row {
   animation: aa-reveal 550ms var(--ease-smooth) both;
+}
+
+.digit-flicker {
+  display: inline-block;
+  animation: aa-digit-flicker 2400ms var(--ease-smooth) infinite;
 }
 
 .btn-sheen {
