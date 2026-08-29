@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import { Wordmark } from "@/components/layout/Wordmark";
 
 interface AuthLayoutProps {
   eyebrow: string;
@@ -15,11 +16,8 @@ export function AuthLayout({ eyebrow, title, subtitle, children, footer }: AuthL
       <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
 
       <div className="relative w-full max-w-[440px]">
-        <Link href="/" className="mb-8 flex items-center justify-center gap-2.5">
-          <span className="block h-2.5 w-2.5 rounded-full bg-surface-brand" />
-          <span className="font-display text-lg font-extrabold tracking-tight text-text-strong">
-            A.AUTOMATORS
-          </span>
+        <Link href="/" className="mb-8 flex items-center justify-center">
+          <Wordmark />
         </Link>
 
         <div className="rounded-card border border-border-hairline bg-surface-card p-7 shadow-card sm:p-9">

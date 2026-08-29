@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { Wordmark } from "@/components/layout/Wordmark";
 
 const team = [
   {
@@ -38,17 +38,7 @@ export function Footer() {
       <div className="relative mx-auto flex max-w-[1180px] flex-col gap-8 px-4 pb-10 pt-12 sm:gap-12 sm:px-6 sm:pt-16 md:pt-[72px]">
         <div className="grid grid-cols-1 items-center gap-7 sm:grid-cols-2 md:gap-16">
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3.5">
-              <Image src="/assets/logo-mark-white.svg" alt="" width={44} height={44} className="h-auto w-11" />
-              <span className="flex flex-col items-start font-display text-2xl leading-[1.02] font-extrabold tracking-[-0.03em] text-white">
-                <span>
-                  <span className="text-surface-brand">A</span>rab
-                </span>
-                <span>
-                  <span className="text-surface-brand">A</span>utomators
-                </span>
-              </span>
-            </div>
+            <Wordmark variant="light" size="lg" />
             <p className="max-w-[44ch] text-sm leading-relaxed text-aa-neutral-400">
               Run by two people. Applications are reviewed every Sunday.
             </p>
@@ -81,7 +71,7 @@ export function Footer() {
           {team.map((person) => (
             <div
               key={person.name}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/14 border-l-4 border-l-surface-brand px-5 py-[18px]"
+              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/10 border-l-4 border-l-surface-brand bg-white/10 px-5 py-[18px] backdrop-blur-md"
             >
               <div className="flex flex-col gap-1">
                 <span className="font-display text-[17px] font-bold text-white">{person.name}</span>
@@ -111,9 +101,15 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/14 pt-6 font-mono text-[11px] text-aa-neutral-500">
+        <div className="flex flex-col gap-2 border-t border-white/14 pt-6 font-mono text-[11px] text-aa-neutral-500 sm:flex-row sm:items-center sm:justify-between">
           <span>© 2026 Arab Automators</span>
-          <span>Round #01 · 32 seats taken · 47 in interview</span>
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className="whitespace-nowrap">Round #01</span>
+            <span aria-hidden="true">·</span>
+            <span className="whitespace-nowrap">32 seats taken</span>
+            <span aria-hidden="true">·</span>
+            <span className="whitespace-nowrap">47 in interview</span>
+          </div>
         </div>
       </div>
     </footer>
