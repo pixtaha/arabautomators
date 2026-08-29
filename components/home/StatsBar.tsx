@@ -11,10 +11,10 @@ export function StatsBar() {
       <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-2 border-b-2 border-black py-[18px] sm:py-[22px]">
           <span className="font-display text-lg font-extrabold tracking-tight text-text-strong sm:text-xl">
-            Round #01 is on the canvas right now
+            Round #02 is on the canvas right now
           </span>
           <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-            05.09.2026 → 01.10.2026 · seats close at interview
+            01.11.2026 → 27.11.2026 · seats close at interview
           </span>
         </div>
       </div>

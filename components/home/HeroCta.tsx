@@ -1,30 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
+import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { buttonClasses } from "@/lib/buttonStyles";
 
 export function HeroCta() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.subscription.unsubscribe();
-  }, []);
+  const { user, loading } = useSupabaseUser();
 
   if (loading) {
     return <div className="h-[52px] w-[140px] animate-pulse rounded-control bg-surface-sunken" />;
@@ -57,7 +38,7 @@ export function HeroCta() {
   }
 
   return (
-    <Link href="/login" className={buttonClasses("primary", "lg")}>
+    <Link href="/login" className={buttonClasses("secondary", "lg")}>
       Login
     </Link>
   );

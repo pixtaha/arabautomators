@@ -11,13 +11,13 @@ import { createClient } from "@/lib/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 
 interface FieldErrors {
-  email?: string;
+  identifier?: string;
   password?: string;
 }
 
 function mapAuthError(message: string) {
   if (message.toLowerCase().includes("invalid login credentials")) {
-    return "Incorrect email or password. Please try again.";
+    return "Incorrect username/email or password. Please try again.";
   }
   if (message.toLowerCase().includes("email not confirmed")) {
     return "Please confirm your email address before logging in.";
@@ -27,7 +27,7 @@ function mapAuthError(message: string) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -35,10 +35,11 @@ export default function LoginPage() {
 
   function validate(): FieldErrors {
     const errors: FieldErrors = {};
-    if (!email.trim()) {
-      errors.email = "Email is required.";
-    } else if (!isValidEmail(email.trim())) {
-      errors.email = "Enter a valid email address.";
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      errors.identifier = "Username or email is required.";
+    } else if (trimmed.includes("@") && !isValidEmail(trimmed)) {
+      errors.identifier = "Enter a valid email address.";
     }
     if (!password) {
       errors.password = "Password is required.";
@@ -55,9 +56,36 @@ export default function LoginPage() {
     if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
+
+    const trimmed = identifier.trim();
+    let loginEmail = trimmed;
+
+    if (!trimmed.includes("@")) {
+      try {
+        const res = await fetch("/api/resolve-username", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: trimmed }),
+        });
+        const json = await res.json();
+
+        if (!res.ok || !json.email) {
+          setFormError(json.error || "No account found with that username.");
+          setLoading(false);
+          return;
+        }
+
+        loginEmail = json.email;
+      } catch {
+        setFormError("Something went wrong. Please try again.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: loginEmail,
       password,
     });
 
@@ -88,14 +116,14 @@ export default function LoginPage() {
         {formError && <FormBanner tone="error">{formError}</FormBanner>}
 
         <Input
-          label="Email"
-          type="email"
-          name="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          error={fieldErrors.email}
+          label="Username or Email"
+          type="text"
+          name="identifier"
+          autoComplete="username"
+          placeholder="yourname or you@example.com"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          error={fieldErrors.identifier}
           disabled={loading}
         />
 

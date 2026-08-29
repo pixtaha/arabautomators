@@ -70,7 +70,7 @@ export function Footer() {
                   Follow Arab Automators on LinkedIn
                 </span>
                 <span className="font-mono text-[10px] tracking-widest text-white/72 uppercase">
-                  Page goes live with Round #01
+                  Page goes live with Round #02
                 </span>
               </span>
             </div>
@@ -113,7 +113,7 @@ export function Footer() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/14 pt-6 font-mono text-[11px] text-aa-neutral-500">
           <span>© 2026 Arab Automators</span>
-          <span>Round #01 · 32 seats taken · 47 in interview</span>
+          <span>Round #02 · 32 seats taken · 47 in interview</span>
         </div>
       </div>
     </footer>

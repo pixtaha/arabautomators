@@ -1,5 +1,6 @@
 import { WorkflowPreview } from "@/components/home/WorkflowPreview";
 import { HeroCta } from "@/components/home/HeroCta";
+import { HeroPrimaryCta } from "@/components/home/HeroPrimaryCta";
 
 export function Hero() {
   return (
@@ -9,7 +10,7 @@ export function Hero() {
       <div className="relative mx-auto grid max-w-[1180px] items-center gap-8 px-4 py-12 sm:gap-16 sm:px-6 sm:py-16 md:py-[88px] lg:grid-cols-2">
         <div className="flex flex-col items-start gap-6">
           <div className="flex items-center gap-2.5 font-mono text-[11px] tracking-widest text-text-muted uppercase">
-            <span className="whitespace-nowrap">ROUND #01 · LIVE AUTOMATION PROGRAM</span>
+            <span className="whitespace-nowrap">ROUND #02 · LIVE AUTOMATION PROGRAM</span>
           </div>
 
           <h1 className="text-[38px] leading-[1.02] font-extrabold tracking-[-0.04em] text-text-strong text-balance sm:text-6xl lg:text-[76px]">
@@ -24,6 +25,7 @@ export function Hero() {
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
+            <HeroPrimaryCta />
             <HeroCta />
           </div>
 
@@ -32,7 +34,7 @@ export function Hero() {
               <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-white" />
               Live now
             </span>
-            <span>184 on the waitlist · Round #1 filled in 9 days</span>
+            <span>184 on the waitlist · Round #2 filled in 9 days</span>
           </div>
         </div>
 
