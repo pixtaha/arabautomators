@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
 import { isValidEmail, isValidUsername } from "@/lib/validation";
 import { buttonClasses } from "@/lib/buttonStyles";
+import { compressImage, uploadAvatar } from "@/lib/imageUpload";
 
 type Step = "identity" | "not-student" | "password";
 type UsernameStatus = "idle" | "invalid" | "checking" | "available" | "taken" | "error";
+type UploadPhase = "idle" | "compressing" | "uploading" | "done";
 
 interface FieldErrors {
   email?: string;
@@ -53,6 +55,8 @@ export default function SignupPage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -77,8 +81,11 @@ export default function SignupPage() {
       setAvatarError("Please choose an image file.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setAvatarError("Image must be under 5MB.");
+    // Generous sanity ceiling on the original file — it gets compressed
+    // and resized before upload, so this only needs to catch truly
+    // oversized files, not typical (5-15MB) phone photos.
+    if (file.size > 25 * 1024 * 1024) {
+      setAvatarError("That image is too large. Please choose a smaller file.");
       return;
     }
 
@@ -199,14 +206,22 @@ export default function SignupPage() {
     }
 
     if (avatarFile && data.user) {
-      const uploadForm = new FormData();
-      uploadForm.append("userId", data.user.id);
-      uploadForm.append("file", avatarFile);
+      setUploadPhase("compressing");
+      const compressed = await compressImage(avatarFile);
 
-      const uploadRes = await fetch("/api/upload-avatar", { method: "POST", body: uploadForm });
-      if (!uploadRes.ok) {
-        setAvatarError("Account created, but the photo didn't upload. You can add one later.");
+      setUploadPhase("uploading");
+      setUploadProgress(0);
+      const result = await uploadAvatar(data.user.id, compressed, {
+        timeoutMs: 40000,
+        onProgress: setUploadProgress,
+      });
+
+      if (result.error) {
+        setAvatarError(
+          "Account created! Your photo is taking longer than expected — you can add it later from your profile.",
+        );
       }
+      setUploadPhase("done");
     }
 
     setSuccess(true);
@@ -371,6 +386,26 @@ export default function SignupPage() {
               />
             </div>
             {avatarError && <p className="text-xs font-medium text-aa-red-700">{avatarError}</p>}
+            {(uploadPhase === "compressing" || uploadPhase === "uploading") && (
+              <div className="flex flex-col gap-2 rounded-control border border-border-hairline-strong bg-surface-sunken px-3.5 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="h-4 w-4 flex-none animate-spin rounded-full border-2 border-surface-brand border-t-transparent" />
+                  <span className="text-xs font-medium text-text-body">
+                    {uploadPhase === "compressing"
+                      ? "Preparing your photo…"
+                      : "Uploading photo… this may take a moment"}
+                  </span>
+                </div>
+                {uploadPhase === "uploading" && (
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-hairline">
+                    <div
+                      className="h-full rounded-full bg-surface-brand transition-[width] duration-200 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <Input
@@ -398,7 +433,13 @@ export default function SignupPage() {
           />
 
           <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={loading}>
-            {loading ? "Creating account…" : "Sign up"}
+            {uploadPhase === "compressing"
+              ? "Preparing photo…"
+              : uploadPhase === "uploading"
+                ? `Uploading photo… ${uploadProgress}%`
+                : loading
+                  ? "Creating account…"
+                  : "Sign up"}
           </Button>
 
           <button
