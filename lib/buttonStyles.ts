@@ -1,4 +1,4 @@
-export type ButtonVariant = "primary" | "secondary" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "ink";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const base =
@@ -16,6 +16,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary:
     "btn-sheen animate-sheen-slow text-text-strong border border-border-hairline-strong bg-[linear-gradient(100deg,#fff_0%,#fff_30%,#EFF4F2_50%,#fff_70%,#fff_100%)] hover:border-surface-brand hover:shadow-md",
   ghost: "text-text-body bg-transparent hover:bg-surface-sunken",
+  ink: "text-white border border-transparent bg-surface-ink hover:bg-aa-neutral-800",
 };
 
 export function buttonClasses(
