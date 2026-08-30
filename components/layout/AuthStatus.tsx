@@ -24,7 +24,7 @@ export function AuthStatus() {
       <Link
         href="/dashboard"
         aria-label="Your account"
-        className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-border-hairline-strong bg-surface-brand font-display text-sm font-bold text-white transition-transform duration-150 active:scale-[.97]"
+        className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-black/[.06] bg-surface-brand-soft font-display text-sm font-bold text-aa-green-800 transition-transform duration-150 active:scale-[.97]"
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -39,7 +39,7 @@ export function AuthStatus() {
   return (
     <Link
       href="/login"
-      className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-full border border-surface-brand px-4 text-sm font-semibold text-text-accent transition-colors duration-150 hover:bg-surface-brand-soft active:scale-[.985]"
+      className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-full border border-border-hairline-strong bg-surface-card px-4 text-sm font-semibold text-text-strong transition-colors duration-150 hover:border-aa-neutral-500 hover:bg-surface-hover active:scale-[.985]"
     >
       Login
     </Link>
