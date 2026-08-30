@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
@@ -33,7 +34,13 @@ const DEMO_LEADERBOARD = [
   { username: "hana_supabase", points: 590 },
 ];
 
-export function DashboardClient({ modules }: { modules: ModuleWithSession[] }) {
+export function DashboardClient({
+  modules,
+  firstSessionId,
+}: {
+  modules: ModuleWithSession[];
+  firstSessionId: string | null;
+}) {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
 
@@ -88,22 +95,22 @@ export function DashboardClient({ modules }: { modules: ModuleWithSession[] }) {
 
               <CourseModulesCard modules={modules} />
 
-              {COURSE_ACCESS_ENABLED ? (
-                <a
-                  href="#continue-course"
+              {COURSE_ACCESS_ENABLED && firstSessionId ? (
+                <Link
+                  href={`/course/${firstSessionId}`}
                   className="flex min-h-[64px] cursor-pointer items-center justify-center rounded-2xl bg-[linear-gradient(100deg,#006A4E_0%,#007858_26%,#109B75_50%,#007858_74%,#006A4E_100%)] bg-[length:260%_100%] px-6 py-4 text-center transition-transform duration-200 ease-[var(--ease-smooth)] [animation:aa-sheen_5.1s_var(--ease-smooth)_infinite_alternate,aa-pulse_2800ms_var(--ease-smooth)_infinite] hover:scale-[1.01]"
                 >
                   <span className="font-display text-base font-extrabold tracking-tight text-white">
                     Go to course — starts September 5, 2026
                   </span>
-                </a>
+                </Link>
               ) : (
                 <div
                   aria-disabled="true"
-                  className="flex min-h-[64px] cursor-not-allowed items-center justify-center rounded-2xl bg-[linear-gradient(100deg,#006A4E_0%,#007858_26%,#109B75_50%,#007858_74%,#006A4E_100%)] bg-[length:260%_100%] px-6 py-4 text-center [animation:aa-sheen_5.1s_var(--ease-smooth)_infinite_alternate,aa-pulse_2800ms_var(--ease-smooth)_infinite]"
+                  className="flex min-h-[64px] cursor-not-allowed items-center justify-center rounded-2xl bg-[linear-gradient(100deg,#006A4E_0%,#007858_26%,#109B75_50%,#007858_74%,#006A4E_100%)] bg-[length:260%_100%] px-6 py-4 text-center opacity-60 grayscale-[.3]"
                 >
                   <span className="font-display text-base font-extrabold tracking-tight text-white">
-                    Go to course — starts September 5, 2026
+                    {COURSE_ACCESS_ENABLED ? "No sessions available yet" : "Go to course — starts September 5, 2026"}
                   </span>
                 </div>
               )}

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 const DEMO_USAGE_PERCENT = 12;
+const DEMO_PUBLISHED_WORKFLOWS = 5;
+const DEMO_UNPUBLISHED_WORKFLOWS = 3;
 
 export function N8nStatusCard() {
   const [filled, setFilled] = useState(false);
@@ -39,6 +41,17 @@ export function N8nStatusCard() {
             className="h-full rounded-full bg-surface-brand transition-[width] duration-1000 ease-[var(--ease-smooth)]"
             style={{ width: filled ? `${DEMO_USAGE_PERCENT}%` : "0%" }}
           />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5 border-t border-border-hairline pt-3.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm text-text-body">Published workflows</span>
+          <span className="font-mono text-xs text-text-muted">{DEMO_PUBLISHED_WORKFLOWS}</span>
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm text-text-body">Unpublished workflows</span>
+          <span className="font-mono text-xs text-text-muted">{DEMO_UNPUBLISHED_WORKFLOWS}</span>
         </div>
       </div>
 
