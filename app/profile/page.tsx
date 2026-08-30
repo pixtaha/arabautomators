@@ -4,17 +4,26 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { Button } from "@/components/ui/Button";
-import { UploadProgress } from "@/components/ui/UploadProgress";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage, uploadAvatar } from "@/lib/imageUpload";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { ProfileStats } from "@/components/profile/ProfileStats";
+import { ProfileAbout } from "@/components/profile/ProfileAbout";
+import { ProfileActivity } from "@/components/profile/ProfileActivity";
+import { ProfileAccount } from "@/components/profile/ProfileAccount";
 
 type UploadPhase = "idle" | "compressing" | "uploading";
 
 interface Profile {
   username: string | null;
   avatar_url: string | null;
+  created_at: string | null;
+}
+
+function formatJoined(iso: string | null | undefined) {
+  if (!iso) return "Joined recently";
+  return `Joined ${new Date(iso).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`;
 }
 
 export default function ProfilePage() {
@@ -39,7 +48,7 @@ export default function ProfilePage() {
     const supabase = createClient();
     supabase
       .from("profiles")
-      .select("username, avatar_url")
+      .select("username, avatar_url, created_at")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => setProfile(data ?? null));
@@ -83,7 +92,11 @@ export default function ProfilePage() {
       setUploadError("Couldn't update your photo. Please try again.");
       return;
     }
-    setProfile((prev) => ({ username: prev?.username ?? null, avatar_url: result.url! }));
+    setProfile((prev) => ({
+      username: prev?.username ?? null,
+      avatar_url: result.url!,
+      created_at: prev?.created_at ?? null,
+    }));
   }
 
   async function handleSignOut() {
@@ -99,7 +112,7 @@ export default function ProfilePage() {
         <Header />
         <main className="relative flex-1 overflow-hidden">
           <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
-          <div className="relative mx-auto flex max-w-[560px] flex-col gap-6 px-4 py-16 sm:px-6">
+          <div className="relative mx-auto flex max-w-[620px] flex-col gap-6 px-4 py-16 sm:px-6">
             <div className="h-8 w-40 animate-pulse rounded-control bg-surface-sunken" />
             <div className="h-40 animate-pulse rounded-card bg-surface-sunken" />
           </div>
@@ -110,8 +123,6 @@ export default function ProfilePage() {
   }
 
   const displayAvatar = avatarPreview ?? profile?.avatar_url ?? null;
-  const username = profile?.username ?? (user.user_metadata?.username as string | undefined) ?? null;
-  const initial = (username ?? user.email ?? "?").charAt(0).toUpperCase();
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
@@ -120,71 +131,31 @@ export default function ProfilePage() {
       <main className="relative flex-1 overflow-hidden">
         <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
 
-        <div className="relative mx-auto flex max-w-[560px] flex-col gap-8 px-4 py-12 sm:px-6 sm:py-16">
+        <div className="relative mx-auto flex max-w-[620px] flex-col gap-6 px-4 py-12 sm:px-6 sm:py-16">
           <div className="flex flex-col gap-2">
             <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
               Your account
             </span>
-            <h1 className="font-display text-[32px] font-extrabold tracking-[-0.03em] text-text-strong">
+            <h2 className="font-display text-[32px] font-extrabold tracking-[-0.03em] text-text-strong">
               Profile
-            </h1>
+            </h2>
           </div>
 
-          <div className="flex flex-col gap-6 rounded-card border border-border-hairline bg-surface-card p-7 shadow-card">
-            <div className="flex items-center gap-5">
-              <div className="grid h-20 w-20 flex-none place-items-center overflow-hidden rounded-full border border-border-hairline-strong bg-surface-brand font-display text-2xl font-bold text-white">
-                {displayAvatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={displayAvatar} alt="" className="h-full w-full object-cover object-center" />
-                ) : (
-                  initial
-                )}
-              </div>
-              <div className="flex min-w-0 flex-col gap-1">
-                <span className="truncate font-display text-lg font-bold text-text-strong">
-                  {username ? `@${username}` : "No username set"}
-                </span>
-                <span className="truncate text-sm text-text-muted">{user.email}</span>
-              </div>
-            </div>
+          <ProfileHeader
+            user={user}
+            username={profile?.username ?? (user.user_metadata?.username as string | undefined) ?? null}
+            displayAvatar={displayAvatar}
+            uploadPhase={uploadPhase}
+            uploadProgress={uploadProgress}
+            uploadError={uploadError}
+            onAvatarChange={handleAvatarChange}
+            joinedLabel={formatJoined(profile?.created_at ?? user.created_at)}
+          />
 
-            <div className="flex flex-col gap-1.5 border-t border-border-hairline pt-6">
-              <label
-                htmlFor="avatar-edit"
-                className="font-mono text-[11px] tracking-widest text-text-muted uppercase"
-              >
-                Edit profile picture
-              </label>
-              <input
-                id="avatar-edit"
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                disabled={uploadPhase !== "idle"}
-                className="cursor-pointer text-sm text-text-body file:mr-3 file:cursor-pointer file:rounded-control file:border-0 file:bg-surface-brand file:px-3.5 file:py-2 file:text-sm file:font-semibold file:text-white"
-              />
-              {uploadError && <p className="text-xs font-medium text-aa-red-700">{uploadError}</p>}
-              {(uploadPhase === "compressing" || uploadPhase === "uploading") && (
-                <UploadProgress phase={uploadPhase} progress={uploadProgress} />
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-card border border-dashed border-border-hairline-strong bg-surface-sunken px-5 py-4 text-sm text-text-muted">
-            This is a demo profile page. More settings — bio, password change, notification
-            preferences — are coming soon.
-          </div>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="self-start"
-          >
-            {signingOut ? "Signing out…" : "Sign out"}
-          </Button>
+          <ProfileStats />
+          <ProfileAbout user={user} />
+          <ProfileActivity />
+          <ProfileAccount onSignOut={handleSignOut} signingOut={signingOut} />
         </div>
       </main>
 
