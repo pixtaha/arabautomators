@@ -1,7 +1,5 @@
 import { WorkflowPreview } from "@/components/home/WorkflowPreview";
-import { HeroCta } from "@/components/home/HeroCta";
 import { HeroPrimaryCta } from "@/components/home/HeroPrimaryCta";
-import { getActiveStudentCount } from "@/lib/data/students";
 
 const ROUND_1_START = new Date(2026, 8, 5, 9, 0); // September 5, 2026, 9:00 AM
 
@@ -12,8 +10,7 @@ function daysUntil(target: Date) {
   return Math.max(0, Math.round((startOfTarget.getTime() - startOfToday.getTime()) / 86400000));
 }
 
-export async function Hero() {
-  const activeStudentCount = await getActiveStudentCount();
+export function Hero() {
   const daysToStart = daysUntil(ROUND_1_START);
 
   return (
@@ -40,24 +37,22 @@ export async function Hero() {
           </h1>
 
           <p className="max-w-[52ch] text-base leading-relaxed text-text-body text-pretty sm:text-lg">
-            Six weeks, live, in Arabic. Not easy, not impossible. It takes discipline to show up
-            every session and keep building. No heavy coding background needed, just consistency.
+            Six weeks, live, in Arabic.{" "}
+            <span className="font-semibold text-text-accent">Real work, real pace.</span> It takes
+            discipline to show up and keep building. No heavy coding background needed, just
+            consistency.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <HeroPrimaryCta />
-            <HeroCta />
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 font-mono text-xs text-text-muted">
-            <span className="animate-pulse-glow inline-flex items-center gap-1.5 rounded-full bg-surface-accent px-3 py-1.5 text-[10px] tracking-widest text-aa-neutral-900 uppercase">
-              <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-aa-neutral-900" />
+            <span className="animate-pulse-glow-danger inline-flex items-center gap-1.5 rounded-full bg-surface-danger px-3 py-1.5 text-[10px] tracking-widest text-white uppercase">
+              <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-white" />
               Live now
             </span>
-            <span>
-              {activeStudentCount !== null ? activeStudentCount : "—"} on the waitlist for Round #1 · Round #2
-              starts Nov 1
-            </span>
+            <span>Round #1 is full · Round #2 waitlist opens soon</span>
           </div>
         </div>
 

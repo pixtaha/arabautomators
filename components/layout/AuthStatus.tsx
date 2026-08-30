@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
-import { buttonClasses } from "@/lib/buttonStyles";
 
-export function HeroCta() {
+export function AuthStatus() {
   const { user, loading } = useSupabaseUser();
 
   if (loading) {
-    return <div className="h-[52px] w-[140px] animate-pulse rounded-control bg-surface-sunken" />;
+    return <div className="h-9 w-9 animate-pulse rounded-full bg-surface-sunken" />;
   }
 
   if (user) {
@@ -25,7 +24,7 @@ export function HeroCta() {
       <Link
         href="/dashboard"
         aria-label="Your account"
-        className="grid h-12 w-12 place-items-center overflow-hidden rounded-full border border-border-hairline-strong bg-surface-brand font-display text-lg font-bold text-white transition-transform duration-150 active:scale-[.97]"
+        className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-border-hairline-strong bg-surface-brand font-display text-sm font-bold text-white transition-transform duration-150 active:scale-[.97]"
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -38,7 +37,10 @@ export function HeroCta() {
   }
 
   return (
-    <Link href="/login" className={buttonClasses("secondary", "lg")}>
+    <Link
+      href="/login"
+      className="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-full border border-surface-brand px-4 text-sm font-semibold text-text-accent transition-colors duration-150 hover:bg-surface-brand-soft active:scale-[.985]"
+    >
       Login
     </Link>
   );

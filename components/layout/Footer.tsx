@@ -106,9 +106,9 @@ export function Footer() {
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <span className="whitespace-nowrap">Round #01</span>
             <span aria-hidden="true">·</span>
-            <span className="whitespace-nowrap">32 seats taken</span>
+            <span className="whitespace-nowrap">Full</span>
             <span aria-hidden="true">·</span>
-            <span className="whitespace-nowrap">47 in interview</span>
+            <span className="whitespace-nowrap">Round #2 waitlist opening soon</span>
           </div>
         </div>
       </div>

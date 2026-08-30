@@ -53,6 +53,7 @@
   --color-surface-brand-soft: var(--color-aa-green-50);
   --color-surface-accent: var(--color-aa-amber-400);
   --color-surface-accent-soft: var(--color-aa-amber-50);
+  --color-surface-danger: var(--color-aa-red-500);
   --color-surface-danger-soft: var(--color-aa-red-50);
 
   --color-text-strong: #000000;
@@ -79,6 +80,7 @@
   --animate-pulse-ring: aa-pulse 2400ms var(--ease-smooth) infinite;
   --animate-pulse-ring-slow: aa-pulse 2800ms var(--ease-smooth) infinite;
   --animate-pulse-glow: aa-pulse-glow 2200ms var(--ease-smooth) infinite;
+  --animate-pulse-glow-danger: aa-pulse-glow-danger 2200ms var(--ease-smooth) infinite;
   --animate-blink: aa-blink 1200ms var(--ease-smooth) infinite;
   --animate-run: aa-run 2600ms var(--ease-smooth) infinite;
 }
@@ -111,6 +113,17 @@
   }
   100% {
     box-shadow: 0 0 0 0 rgba(248, 200, 0, 0);
+  }
+}
+@keyframes aa-pulse-glow-danger {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(217, 45, 32, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 45, 32, 0);
   }
 }
 @keyframes aa-blink {
