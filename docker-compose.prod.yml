@@ -1,0 +1,25 @@
+services:
+  arab-automators-web:
+    image: arabautomators-platform:latest
+    container_name: arabautomators-platform
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      BUNNY_STREAM_LIBRARY_ID: ${BUNNY_STREAM_LIBRARY_ID}
+      BUNNY_STREAM_API_KEY: ${BUNNY_STREAM_API_KEY}
+      BUNNY_STREAM_CDN_HOSTNAME: ${BUNNY_STREAM_CDN_HOSTNAME}
+    mem_limit: 768m
+    networks:
+      - arabautomators-net
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.http.routers.arabautomators.rule=Host(`arabautomators.com`)'
+      - "traefik.http.routers.arabautomators.entrypoints=websecure"
+      - "traefik.http.routers.arabautomators.tls.certresolver=letsencrypt"
+      - "traefik.http.services.arabautomators.loadbalancer.server.port=3000"
+
+networks:
+  arabautomators-net:
+    external: true
