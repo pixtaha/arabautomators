@@ -31,7 +31,7 @@ export function CourseTocList({ modules }: { modules: ModuleRow[] }) {
     <>
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div className="flex flex-col gap-3">
-          <h2 className="text-[26px] font-extrabold tracking-tight text-text-strong sm:text-[34px]">
+          <h2 className="font-display text-[26px] font-extrabold tracking-tight text-text-strong sm:text-[34px]">
             Table of contents
           </h2>
           <p className="max-w-[60ch] text-[15px] leading-relaxed text-text-muted">

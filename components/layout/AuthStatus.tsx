@@ -24,7 +24,7 @@ export function AuthStatus() {
       <Link
         href="/profile"
         aria-label="Your account"
-        className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-black/[.06] bg-surface-brand-soft font-display text-sm font-bold text-aa-green-800 transition-transform duration-150 active:scale-[.97]"
+        className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-black/[.06] bg-surface-brand-soft font-display text-sm font-bold text-aa-green-800 transition-[transform,border-color,box-shadow] duration-150 hover:border-surface-brand hover:shadow-[0_0_0_3px_var(--color-surface-brand-soft)] active:scale-[.97]"
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

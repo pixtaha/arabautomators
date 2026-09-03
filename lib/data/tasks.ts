@@ -41,7 +41,7 @@ export async function getModulesWithTasks(): Promise<ModuleWithTasks[]> {
     tasksByModule.set(task.module_id, list);
   }
 
-  return modules
-    .map((module) => ({ ...module, tasks: tasksByModule.get(module.id) ?? [] }))
-    .filter((module) => module.tasks.length > 0);
+  // Every module is returned, including ones with no tasks yet -- the tasks
+  // page renders them collapsed as a roadmap of what is still to come.
+  return modules.map((module) => ({ ...module, tasks: tasksByModule.get(module.id) ?? [] }));
 }

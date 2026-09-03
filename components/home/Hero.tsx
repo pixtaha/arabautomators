@@ -31,7 +31,7 @@ export function Hero() {
             </p>
           </div>
 
-          <h1 className="text-[34px] leading-[1.05] font-extrabold tracking-[-0.04em] text-text-strong text-balance sm:text-5xl lg:text-[52px] xl:text-6xl">
+          <h1 className="font-display text-[34px] leading-[1.05] font-extrabold tracking-[-0.04em] text-text-strong text-balance sm:text-5xl lg:text-[52px] xl:text-6xl">
             Your fast track to building real AI automations
             <span className="text-surface-brand">.</span>
           </h1>
