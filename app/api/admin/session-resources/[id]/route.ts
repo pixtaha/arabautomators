@@ -1,5 +1,4 @@
 import { requireAdmin } from "@/lib/adminAuth";
-import { deleteBunnyVideo } from "@/lib/bunny";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "session-resources";
@@ -14,7 +13,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { data: resource, error: fetchError } = await supabase
     .from("session_resources")
-    .select("id, file_url, bunny_video_id")
+    .select("id, file_url")
     .eq("id", id)
     .maybeSingle();
 
@@ -33,12 +32,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       const path = decodeURIComponent(resource.file_url.slice(prefixIndex + PUBLIC_PREFIX.length));
       await supabase.storage.from(BUCKET).remove([path]);
     }
-  }
-
-  if (resource.bunny_video_id) {
-    await deleteBunnyVideo(resource.bunny_video_id).catch((error) => {
-      console.error("Could not delete Bunny video for session resource.", error);
-    });
   }
 
   return Response.json({ ok: true });

@@ -5,7 +5,10 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { SESSION_RESOURCE_MAX_FILE_SIZE_BYTES, SESSION_RESOURCE_MAX_FILE_SIZE_LABEL } from "@/lib/sessionResources";
+import {
+  SESSION_RESOURCE_MAX_FILE_SIZE_BYTES,
+  SESSION_RESOURCE_MAX_FILE_SIZE_LABEL,
+} from "@/lib/sessionResources";
 
 const RESOURCE_TYPES = [
   { value: "pdf", label: "PDF" },
@@ -34,52 +37,38 @@ interface ResourceRow {
   order_index: number;
 }
 
-interface UploadResult {
+interface UploadResponse {
   resource?: ResourceRow;
   error?: string;
 }
 
-function uploadVideoResource({
-  sessionId,
-  title,
-  file,
-  onProgress,
-}: {
-  sessionId: string;
-  title: string;
-  file: File;
-  onProgress: (progress: number) => void;
-}): Promise<UploadResult> {
+function uploadSessionResource(
+  formData: FormData,
+  onProgress: (percent: number) => void,
+): Promise<{ status: number; data: UploadResponse }> {
   return new Promise((resolve) => {
-    const params = new URLSearchParams({ sessionId, title });
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/admin/session-resources/video?${params}`);
-    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.open("POST", "/api/admin/session-resources");
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
       }
     };
 
     xhr.onload = () => {
-      let data: UploadResult = {};
+      let data: UploadResponse = {};
       try {
-        data = JSON.parse(xhr.responseText) as UploadResult;
+        data = JSON.parse(xhr.responseText) as UploadResponse;
       } catch {
-        // The status fallback below handles a non-JSON response.
+        // A non-JSON response is reported as a generic upload failure below.
       }
-
-      if (xhr.status >= 200 && xhr.status < 300 && data.resource) {
-        resolve(data);
-      } else {
-        resolve({ error: data.error ?? "Video upload failed." });
-      }
+      resolve({ status: xhr.status, data });
     };
-    xhr.onerror = () => resolve({ error: "Video upload failed." });
-    xhr.onabort = () => resolve({ error: "Video upload was cancelled." });
 
-    xhr.send(file);
+    xhr.onerror = () => resolve({ status: 0, data: { error: "Upload failed. Check your connection and try again." } });
+    xhr.onabort = () => resolve({ status: 0, data: { error: "Upload was cancelled." } });
+    xhr.send(formData);
   });
 }
 
@@ -98,7 +87,7 @@ export function SessionResourcesAdminClient() {
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
@@ -145,7 +134,6 @@ export function SessionResourcesAdminClient() {
       setFormError("Choose a file to upload.");
       return;
     }
-
     if (file && file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
       setFormError(`File must be ${SESSION_RESOURCE_MAX_FILE_SIZE_LABEL} or smaller.`);
       return;
@@ -162,39 +150,25 @@ export function SessionResourcesAdminClient() {
     }
 
     setSubmitting(true);
-    setUploadProgress(0);
+    setUploadProgress(type === "text" ? null : 0);
 
     try {
-      let result: UploadResult;
+      const { status, data } = await uploadSessionResource(formData, setUploadProgress);
 
-      if (type === "video" && file) {
-        result = await uploadVideoResource({
-          sessionId: selectedSessionId,
-          title: title.trim(),
-          file,
-          onProgress: setUploadProgress,
-        });
-      } else {
-        const response = await fetch("/api/admin/session-resources", { method: "POST", body: formData });
-        result = (await response.json()) as UploadResult;
-        if (!response.ok && !result.error) result.error = "Something went wrong.";
-      }
-
-      if (result.error || !result.resource) {
-        setFormError(result.error ?? "Something went wrong.");
+      if (status < 200 || status >= 300 || !data.resource) {
+        setFormError(data.error ?? "Something went wrong.");
         return;
       }
 
-      setFormSuccess(`Uploaded "${result.resource.title}".`);
+      setFormSuccess(`Uploaded "${data.resource.title}".`);
       setTitle("");
       setText("");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       loadResources(selectedSessionId);
-    } catch {
-      setFormError("Upload failed. Please try again.");
     } finally {
       setSubmitting(false);
+      setUploadProgress(null);
     }
   }
 
@@ -221,7 +195,7 @@ export function SessionResourcesAdminClient() {
               Session resources
             </h1>
             <p className="max-w-[60ch] text-sm leading-relaxed text-text-muted">
-              Upload course materials for a session. General session videos are streamed through Bunny Stream.
+              Upload course materials for a session.
             </p>
           </div>
 
@@ -240,7 +214,7 @@ export function SessionResourcesAdminClient() {
                   setResourcesLoading(true);
                   setSelectedSessionId(e.target.value);
                 }}
-                disabled={sessionsLoading || sessions.length === 0}
+                disabled={submitting || sessionsLoading || sessions.length === 0}
                 className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25"
               >
                 {sessions.length === 0 && <option>No sessions found</option>}
@@ -260,11 +234,8 @@ export function SessionResourcesAdminClient() {
               <select
                 id="type"
                 value={type}
-                onChange={(e) => {
-                  setType(e.target.value as ResourceType);
-                  setFile(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
+                onChange={(e) => setType(e.target.value as ResourceType)}
+                disabled={submitting}
                 className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25"
               >
                 {RESOURCE_TYPES.map((t) => (
@@ -280,6 +251,7 @@ export function SessionResourcesAdminClient() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Session 1 slides"
+              disabled={submitting}
             />
 
             {type === "text" ? (
@@ -292,6 +264,7 @@ export function SessionResourcesAdminClient() {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   rows={5}
+                  disabled={submitting}
                   className="w-full resize-y rounded-control border border-border-hairline-strong bg-surface-card p-3.5 text-sm text-text-body outline-none focus:border-surface-brand focus:ring-2 focus:ring-surface-brand/25"
                 />
               </div>
@@ -304,8 +277,20 @@ export function SessionResourcesAdminClient() {
                   id="resource-file"
                   ref={fileInputRef}
                   type="file"
-                  accept={type === "video" || type === "credential_video" ? "video/*" : undefined}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const selectedFile = e.target.files?.[0] ?? null;
+                    setFormError(null);
+
+                    if (selectedFile && selectedFile.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
+                      setFile(null);
+                      e.target.value = "";
+                      setFormError(`File must be ${SESSION_RESOURCE_MAX_FILE_SIZE_LABEL} or smaller.`);
+                      return;
+                    }
+
+                    setFile(selectedFile);
+                  }}
+                  disabled={submitting}
                   className="cursor-pointer text-sm text-text-body file:mr-3 file:cursor-pointer file:rounded-control file:border-0 file:bg-surface-brand file:px-3.5 file:py-2 file:text-sm file:font-semibold file:text-white"
                 />
                 <p className="text-xs text-text-muted">
@@ -314,15 +299,15 @@ export function SessionResourcesAdminClient() {
               </div>
             )}
 
-            {type === "video" && submitting && (
+            {uploadProgress !== null && (
               <div className="flex flex-col gap-2 rounded-control border border-border-hairline-strong bg-surface-sunken px-3.5 py-3">
                 <div className="flex items-center justify-between gap-3 text-xs font-medium text-text-body">
-                  <span>{uploadProgress < 100 ? "Uploading to Bunny Stream…" : "Finalizing video…"}</span>
-                  <span className="font-mono text-text-muted">{uploadProgress}%</span>
+                  <span>{uploadProgress < 100 ? "Uploading file…" : "Upload received. Saving resource…"}</span>
+                  <span className="font-mono tabular-nums text-text-strong">{uploadProgress}%</span>
                 </div>
                 <div
                   role="progressbar"
-                  aria-label="Video upload progress"
+                  aria-label="File upload progress"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={uploadProgress}

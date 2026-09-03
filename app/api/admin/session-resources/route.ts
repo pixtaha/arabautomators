@@ -1,5 +1,8 @@
 import { requireAdmin } from "@/lib/adminAuth";
-import { SESSION_RESOURCE_MAX_FILE_SIZE_BYTES, SESSION_RESOURCE_MAX_FILE_SIZE_LABEL } from "@/lib/sessionResources";
+import {
+  SESSION_RESOURCE_MAX_FILE_SIZE_BYTES,
+  SESSION_RESOURCE_MAX_FILE_SIZE_LABEL,
+} from "@/lib/sessionResources";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "session-resources";
@@ -48,9 +51,6 @@ export async function POST(request: Request) {
   }
   if (typeof type !== "string" || !RESOURCE_TYPES.includes(type as ResourceType)) {
     return Response.json({ error: "Invalid resource type." }, { status: 400 });
-  }
-  if (type === "video") {
-    return Response.json({ error: "General videos must use the Bunny Stream upload endpoint." }, { status: 400 });
   }
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "Title is required." }, { status: 400 });
