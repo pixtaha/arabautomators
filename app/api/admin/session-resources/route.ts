@@ -1,11 +1,11 @@
 import { requireAdmin } from "@/lib/adminAuth";
+import { SESSION_RESOURCE_MAX_FILE_SIZE_BYTES, SESSION_RESOURCE_MAX_FILE_SIZE_LABEL } from "@/lib/sessionResources";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "session-resources";
 const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
-const MAX_SIZE = 100 * 1024 * 1024; // 100MB
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function sanitizeFilename(name: string) {
@@ -49,6 +49,9 @@ export async function POST(request: Request) {
   if (typeof type !== "string" || !RESOURCE_TYPES.includes(type as ResourceType)) {
     return Response.json({ error: "Invalid resource type." }, { status: 400 });
   }
+  if (type === "video") {
+    return Response.json({ error: "General videos must use the Bunny Stream upload endpoint." }, { status: 400 });
+  }
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "Title is required." }, { status: 400 });
   }
@@ -68,8 +71,11 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || file.size === 0) {
       return Response.json({ error: "A file is required for this resource type." }, { status: 400 });
     }
-    if (file.size > MAX_SIZE) {
-      return Response.json({ error: "File must be under 100MB." }, { status: 400 });
+    if (file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
+      return Response.json(
+        { error: `File must be ${SESSION_RESOURCE_MAX_FILE_SIZE_LABEL} or smaller.` },
+        { status: 400 },
+      );
     }
     uploadBlob = file;
     filename = sanitizeFilename(file.name || "upload");

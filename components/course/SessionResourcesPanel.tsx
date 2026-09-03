@@ -138,13 +138,7 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
               <ExpandableVideoCard
                 key={v.id}
                 title={v.title}
-                player={
-                  v.bunny_video_id ? (
-                    <BunnyPlayer videoId={v.bunny_video_id} />
-                  ) : v.file_url ? (
-                    <video controls src={v.file_url} className="w-full rounded-lg" />
-                  ) : null
-                }
+                player={v.bunny_video_id ? <BunnyPlayer videoId={v.bunny_video_id} /> : null}
               />
             ))}
           </div>

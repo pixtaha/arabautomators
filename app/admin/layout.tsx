@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
-import { requireDeviceSession } from "@/lib/auth/device-session";
+import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  await requireDeviceSession();
+  const admin = await requireAdmin();
+  if (!admin) redirect("/");
+
   return children;
 }
