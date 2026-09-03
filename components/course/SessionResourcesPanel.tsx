@@ -45,7 +45,8 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
   const notes = resources.filter((r) => r.type === "text");
   const audio = resources.filter((r) => r.type === "voice_note");
   const workflows = resources.filter((r) => r.type === "workflow_file");
-  const videos = resources.filter((r) => r.type === "credential_video");
+  const videos = resources.filter((r) => r.type === "video");
+  const credentialVideos = resources.filter((r) => r.type === "credential_video");
 
   if (resources.length === 0) return null;
 
@@ -131,9 +132,29 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
       )}
 
       {videos.length > 0 && (
-        <Section label="Credential setup">
+        <Section label="Videos">
           <div className="flex flex-col gap-2">
             {videos.map((v) => (
+              <ExpandableVideoCard
+                key={v.id}
+                title={v.title}
+                player={
+                  v.bunny_video_id ? (
+                    <BunnyPlayer videoId={v.bunny_video_id} />
+                  ) : v.file_url ? (
+                    <video controls src={v.file_url} className="w-full rounded-lg" />
+                  ) : null
+                }
+              />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {credentialVideos.length > 0 && (
+        <Section label="Credential setup">
+          <div className="flex flex-col gap-2">
+            {credentialVideos.map((v) => (
               <ExpandableVideoCard
                 key={v.id}
                 title={v.title}

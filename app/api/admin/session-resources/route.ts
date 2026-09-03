@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "session-resources";
-const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "credential_video"] as const;
+const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const MAX_SIZE = 100 * 1024 * 1024; // 100MB

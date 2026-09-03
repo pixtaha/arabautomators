@@ -11,6 +11,7 @@ const RESOURCE_TYPES = [
   { value: "voice_note", label: "Voice note" },
   { value: "workflow_file", label: "Workflow file (n8n JSON)" },
   { value: "text", label: "Text note" },
+  { value: "video", label: "General session video" },
   { value: "credential_video", label: "Credential setup video" },
 ] as const;
 

@@ -29,12 +29,15 @@ export function SessionRail({
   moduleTitle,
   sessions,
   currentSessionId,
+  open,
+  onOpenChange,
 }: {
   moduleTitle: string;
   sessions: CourseSessionRow[];
   currentSessionId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(true);
   const [done, setDone] = useState<Set<string>>(new Set());
 
   const doneCount = done.size;
@@ -43,8 +46,9 @@ export function SessionRail({
 
   return (
     <aside
-      className="sticky top-4 flex flex-col gap-3.5 overflow-hidden rounded-card bg-surface-ink p-3 py-4 transition-[width] duration-200 ease-[var(--ease-smooth)]"
-      style={{ width: open ? "272px" : "68px" }}
+      className={`sticky top-4 flex flex-col gap-3.5 overflow-hidden rounded-card bg-surface-ink p-3 py-4 transition-[width] duration-300 ease-[var(--ease-smooth)] lg:w-full ${
+        open ? "w-[272px]" : "w-[68px]"
+      }`}
     >
       <div className="flex items-center justify-between gap-2 px-1">
         {open && (
@@ -55,7 +59,8 @@ export function SessionRail({
         )}
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => onOpenChange(!open)}
+          aria-expanded={open}
           aria-label="Toggle session list"
           className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
         >
