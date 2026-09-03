@@ -1,6 +1,18 @@
 import { isValidEmail } from "@/lib/validation";
 import { createClient } from "@/lib/supabase/server";
 
+const DEFAULT_RETRY_AFTER_SECONDS = 60;
+
+function getRetryAfterSeconds(message: string) {
+  const match = message.match(/after\s+(\d+)\s+seconds?/i);
+  if (!match) return DEFAULT_RETRY_AFTER_SECONDS;
+
+  const seconds = Number.parseInt(match[1], 10);
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(seconds, 60 * 60)
+    : DEFAULT_RETRY_AFTER_SECONDS;
+}
+
 export async function POST(request: Request) {
   let email: unknown;
   try {
@@ -19,10 +31,17 @@ export async function POST(request: Request) {
     options: { shouldCreateUser: false },
   });
 
-  if (error?.message.toLowerCase().includes("rate")) {
+  if (error && (error.status === 429 || error.code === "over_email_send_rate_limit")) {
+    const retryAfter = getRetryAfterSeconds(error.message);
     return Response.json(
-      { error: "Please wait before requesting another code." },
-      { status: 429 },
+      {
+        error: `Please wait ${retryAfter} second${retryAfter === 1 ? "" : "s"} before requesting another code.`,
+        retryAfter,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfter) },
+      },
     );
   }
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { isValidEmail } from "@/lib/validation";
 
 type LoginStep = "email" | "code";
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -28,6 +30,15 @@ export default function LoginPage() {
     }, 0);
     return () => window.clearTimeout(timeout);
   }, []);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timeout = window.setTimeout(() => {
+      setResendCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearTimeout(timeout);
+  }, [resendCooldown]);
 
   async function sendCode() {
     setFieldError(null);
@@ -46,14 +57,22 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as { error?: string; retryAfter?: number };
 
       if (!response.ok) {
+        if (response.status === 429) {
+          setResendCooldown(
+            Number.isFinite(result.retryAfter) && (result.retryAfter ?? 0) > 0
+              ? Math.ceil(result.retryAfter!)
+              : RESEND_COOLDOWN_SECONDS,
+          );
+        }
         setFormError(result.error || "Could not send a login code. Please try again.");
         return;
       }
 
       setStep("code");
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setFormMessage("If an account exists for this email, a login code has been sent.");
     } catch {
       setFormError("Could not send a login code. Please try again.");
@@ -173,6 +192,7 @@ export default function LoginPage() {
                 setFieldError(null);
                 setFormError(null);
                 setFormMessage(null);
+                setResendCooldown(0);
               }}
               disabled={loading}
               className="font-semibold text-text-accent"
@@ -182,10 +202,10 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={sendCode}
-              disabled={loading}
+              disabled={loading || resendCooldown > 0}
               className="font-semibold text-text-accent"
             >
-              Resend code
+              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
             </button>
           </div>
         </form>
