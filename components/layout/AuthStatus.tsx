@@ -22,7 +22,7 @@ export function AuthStatus() {
 
     return (
       <Link
-        href="/dashboard"
+        href="/profile"
         aria-label="Your account"
         className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-black/[.06] bg-surface-brand-soft font-display text-sm font-bold text-aa-green-800 transition-transform duration-150 active:scale-[.97]"
       >
