@@ -135,9 +135,9 @@ export default function ProfilePage() {
 
   async function handleSignOut() {
     setSigningOut(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
     router.push("/");
+    router.refresh();
   }
 
   if (loading || !user) {

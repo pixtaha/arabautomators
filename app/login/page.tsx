@@ -1,108 +1,114 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { FormBanner } from "@/components/auth/FormBanner";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { createClient } from "@/lib/supabase/client";
 import { isValidEmail } from "@/lib/validation";
 
-interface FieldErrors {
-  identifier?: string;
-  password?: string;
-}
-
-function mapAuthError(message: string) {
-  if (message.toLowerCase().includes("invalid login credentials")) {
-    return "Incorrect username/email or password. Please try again.";
-  }
-  if (message.toLowerCase().includes("email not confirmed")) {
-    return "Please confirm your email address before logging in.";
-  }
-  return message;
-}
+type LoginStep = "email" | "code";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [step, setStep] = useState<LoginStep>("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formMessage, setFormMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function validate(): FieldErrors {
-    const errors: FieldErrors = {};
-    const trimmed = identifier.trim();
-    if (!trimmed) {
-      errors.identifier = "Username or email is required.";
-    } else if (trimmed.includes("@") && !isValidEmail(trimmed)) {
-      errors.identifier = "Enter a valid email address.";
-    }
-    if (!password) {
-      errors.password = "Password is required.";
-    }
-    return errors;
-  }
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const message = new URLSearchParams(window.location.search).get("message");
+      if (message) setFormMessage(message);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function sendCode() {
+    setFieldError(null);
     setFormError(null);
+    setFormMessage(null);
 
-    const errors = validate();
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setLoading(true);
-
-    const trimmed = identifier.trim();
-    let loginEmail = trimmed;
-
-    if (!trimmed.includes("@")) {
-      try {
-        const res = await fetch("/api/resolve-username", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: trimmed }),
-        });
-        const json = await res.json();
-
-        if (!res.ok || !json.email) {
-          setFormError(json.error || "No account found with that username.");
-          setLoading(false);
-          return;
-        }
-
-        loginEmail = json.email;
-      } catch {
-        setFormError("Something went wrong. Please try again.");
-        setLoading(false);
-        return;
-      }
-    }
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password,
-    });
-
-    if (error) {
-      setFormError(mapAuthError(error.message));
-      setLoading(false);
+    if (!isValidEmail(email.trim())) {
+      setFieldError("Enter a valid email address.");
       return;
     }
 
-    router.push("/dashboard");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setFormError(result.error || "Could not send a login code. Please try again.");
+        return;
+      }
+
+      setStep("code");
+      setFormMessage("If an account exists for this email, a login code has been sent.");
+    } catch {
+      setFormError("Could not send a login code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await sendCode();
+  }
+
+  async function handleVerify(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFieldError(null);
+    setFormError(null);
+
+    if (!/^\d{6}$/.test(code.trim())) {
+      setFieldError("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), token: code.trim() }),
+      });
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setFormError(result.error || "Could not verify that code. Please try again.");
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setFormError("Could not verify that code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <AuthLayout
       eyebrow="Welcome back"
-      title="Log in to your account"
-      subtitle="Pick up where you left off in the program."
+      title={step === "email" ? "Log in to your account" : "Enter your login code"}
+      subtitle={
+        step === "email"
+          ? "We'll email you a one-time code. No password needed."
+          : `We sent a 6-digit code to ${email.trim()}.`
+      }
       footer={
         <span>
           Don&apos;t have an account?{" "}
@@ -112,45 +118,78 @@ export default function LoginPage() {
         </span>
       }
     >
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-        {formError && <FormBanner tone="error">{formError}</FormBanner>}
+      {step === "email" ? (
+        <form onSubmit={handleSend} noValidate className="flex flex-col gap-5">
+          {formMessage && <FormBanner tone="success">{formMessage}</FormBanner>}
+          {formError && <FormBanner tone="error">{formError}</FormBanner>}
 
-        <Input
-          label="Username or Email"
-          type="text"
-          name="identifier"
-          autoComplete="username"
-          placeholder="yourname or you@example.com"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          error={fieldErrors.identifier}
-          disabled={loading}
-        />
-
-        <div className="flex flex-col gap-1.5">
           <Input
-            label="Password"
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={fieldErrors.password}
+            label="Email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            error={fieldError || undefined}
             disabled={loading}
           />
-          <Link
-            href="/forgot-password"
-            className="self-end text-xs font-semibold text-text-accent"
-          >
-            Forgot password?
-          </Link>
-        </div>
 
-        <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={loading}>
-          {loading ? "Logging in…" : "Log in"}
-        </Button>
-      </form>
+          <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={loading}>
+            {loading ? "Sending code…" : "Send login code"}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerify} noValidate className="flex flex-col gap-5">
+          {formMessage && <FormBanner tone="success">{formMessage}</FormBanner>}
+          {formError && <FormBanner tone="error">{formError}</FormBanner>}
+
+          <Input
+            label="One-time code"
+            type="text"
+            name="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            pattern="[0-9]*"
+            placeholder="123456"
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            error={fieldError || undefined}
+            disabled={loading}
+            autoFocus
+          />
+
+          <Button type="submit" variant="primary" size="lg" className="mt-1 w-full" disabled={loading}>
+            {loading ? "Verifying…" : "Verify and log in"}
+          </Button>
+
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setStep("email");
+                setCode("");
+                setFieldError(null);
+                setFormError(null);
+                setFormMessage(null);
+              }}
+              disabled={loading}
+              className="font-semibold text-text-accent"
+            >
+              ← Change email
+            </button>
+            <button
+              type="button"
+              onClick={sendCode}
+              disabled={loading}
+              className="font-semibold text-text-accent"
+            >
+              Resend code
+            </button>
+          </div>
+        </form>
+      )}
     </AuthLayout>
   );
 }

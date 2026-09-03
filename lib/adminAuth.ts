@@ -1,6 +1,6 @@
 import "server-only";
 import type { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { getActiveDeviceSession } from "@/lib/auth/device-session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -12,15 +12,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * API routes, independent of both the page-level check and table RLS.
  */
 export async function requireAdmin(): Promise<User | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const deviceSession = await getActiveDeviceSession();
+  if (!deviceSession) return null;
 
   const admin = createAdminClient();
-  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", deviceSession.user.id)
+    .maybeSingle();
 
   if (profile?.role !== "admin") return null;
-  return user;
+  return deviceSession.user;
 }

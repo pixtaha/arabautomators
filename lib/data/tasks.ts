@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireDeviceSession } from "@/lib/auth/device-session";
 
 export interface TaskRow {
   id: string;
@@ -19,6 +20,7 @@ export interface ModuleWithTasks {
 }
 
 export async function getModulesWithTasks(): Promise<ModuleWithTasks[]> {
+  await requireDeviceSession();
   const supabase = createAdminClient();
   const [{ data: modules, error: modulesError }, { data: tasks }] = await Promise.all([
     supabase.from("modules").select("id, order_index, title, available_date").order("order_index"),

@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireDeviceSession } from "@/lib/auth/device-session";
 
 export interface ModuleRow {
   order_index: number;
@@ -29,6 +30,7 @@ export interface ModuleWithSession {
 }
 
 export async function getModulesWithSessions(): Promise<ModuleWithSession[]> {
+  await requireDeviceSession();
   const supabase = createAdminClient();
   const [{ data: modules, error: modulesError }, { data: sessions }] = await Promise.all([
     supabase

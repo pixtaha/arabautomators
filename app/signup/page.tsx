@@ -183,42 +183,31 @@ export default function SignupPage() {
     if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: { username: username.trim() },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
+    const response = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), password, username: username.trim() }),
     });
+    const result = (await response.json()) as { userId?: string; error?: string };
 
-    if (error) {
-      setFormError(mapAuthError(error.message));
+    if (!response.ok || !result.userId) {
+      setFormError(mapAuthError(result.error || "Could not create your account."));
       setLoading(false);
       return;
     }
 
-    // Supabase returns a user with an empty identities array when the email
-    // is already registered but confirmation is required, instead of an error.
-    if (data.user && data.user.identities && data.user.identities.length === 0) {
-      setFormError("An account with this email already exists. Try logging in instead.");
-      setLoading(false);
-      return;
-    }
-
-    if (avatarFile && data.user) {
+    if (avatarFile) {
       setUploadPhase("compressing");
       const compressed = await compressImage(avatarFile);
 
       setUploadPhase("uploading");
       setUploadProgress(0);
-      const result = await uploadAvatar(data.user.id, compressed, {
+      const uploadResult = await uploadAvatar(result.userId, compressed, {
         timeoutMs: 40000,
         onProgress: setUploadProgress,
       });
 
-      if (result.error) {
+      if (uploadResult.error) {
         setAvatarError(
           "Account created! Your photo is taking longer than expected — you can add it later from your profile.",
         );
