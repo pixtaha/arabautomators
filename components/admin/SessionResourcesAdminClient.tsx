@@ -35,10 +35,25 @@ interface ResourceRow {
   file_url: string | null;
   bunny_video_id: string | null;
   order_index: number;
+  file_size_bytes: number | null;
+  page_count: number | null;
 }
 
 interface UploadResponse {
   resource?: ResourceRow;
+  error?: string;
+}
+
+interface PushResult {
+  subdomain: string;
+  studentName: string;
+  success: boolean;
+  message: string;
+}
+
+interface PushWorkflowResponse {
+  results?: PushResult[];
+  summary?: { total: number; succeeded: number; failed: number };
   error?: string;
 }
 
@@ -84,12 +99,20 @@ export function SessionResourcesAdminClient() {
   const [type, setType] = useState<ResourceType>("pdf");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [pageCount, setPageCount] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+
+  const [workflowFile, setWorkflowFile] = useState<File | null>(null);
+  const workflowFileInputRef = useRef<HTMLInputElement>(null);
+  const [pushing, setPushing] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [pushResults, setPushResults] = useState<PushResult[]>([]);
+  const [pushSummary, setPushSummary] = useState<{ total: number; succeeded: number; failed: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/sessions")
@@ -148,6 +171,9 @@ export function SessionResourcesAdminClient() {
     } else if (file) {
       formData.append("file", file);
     }
+    if (type === "pdf" && pageCount.trim()) {
+      formData.append("pageCount", pageCount.trim());
+    }
 
     setSubmitting(true);
     setUploadProgress(type === "text" ? null : 0);
@@ -163,6 +189,7 @@ export function SessionResourcesAdminClient() {
       setFormSuccess(`Uploaded "${data.resource.title}".`);
       setTitle("");
       setText("");
+      setPageCount("");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       loadResources(selectedSessionId);
@@ -178,6 +205,43 @@ export function SessionResourcesAdminClient() {
     setDeletingId(null);
     if (res.ok) {
       setResources((prev) => prev.filter((r) => r.id !== id));
+    }
+  }
+
+  async function handlePushWorkflow() {
+    setPushError(null);
+    setPushResults([]);
+    setPushSummary(null);
+
+    if (!workflowFile) {
+      setPushError("Choose a workflow JSON file first.");
+      return;
+    }
+    if (!window.confirm("Push this workflow to all provisioned students now?")) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", workflowFile);
+
+    setPushing(true);
+    try {
+      const res = await fetch("/api/admin/push-workflow", { method: "POST", body: formData });
+      const data = (await res.json()) as PushWorkflowResponse;
+
+      if (!res.ok || !data.results) {
+        setPushError(data.error ?? "Something went wrong.");
+        return;
+      }
+
+      setPushResults(data.results);
+      setPushSummary(data.summary ?? null);
+      setWorkflowFile(null);
+      if (workflowFileInputRef.current) workflowFileInputRef.current.value = "";
+    } catch {
+      setPushError("Request failed. Check your connection and try again.");
+    } finally {
+      setPushing(false);
     }
   }
 
@@ -299,6 +363,19 @@ export function SessionResourcesAdminClient() {
               </div>
             )}
 
+            {type === "pdf" && (
+              <Input
+                label="Page count (optional)"
+                type="number"
+                min="1"
+                step="1"
+                value={pageCount}
+                onChange={(e) => setPageCount(e.target.value)}
+                placeholder="e.g. 22"
+                disabled={submitting}
+              />
+            )}
+
             {uploadProgress !== null && (
               <div className="flex flex-col gap-2 rounded-control border border-border-hairline-strong bg-surface-sunken px-3.5 py-3">
                 <div className="flex items-center justify-between gap-3 text-xs font-medium text-text-body">
@@ -371,6 +448,81 @@ export function SessionResourcesAdminClient() {
                     >
                       {deletingId === r.id ? "Deleting…" : "Delete"}
                     </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
+            <div className="flex flex-col gap-1">
+              <h2 className="font-display text-lg font-bold text-text-strong">Push Workflow to All Students</h2>
+              <p className="max-w-[60ch] text-sm leading-relaxed text-text-muted">
+                Upload an n8n workflow JSON file to create it directly inside every provisioned student&apos;s live n8n
+                instance via its API. This is separate from the &quot;Workflow file&quot; resource type above, which
+                only stores a downloadable file.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="workflow-file" className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
+                Workflow JSON file
+              </label>
+              <input
+                id="workflow-file"
+                ref={workflowFileInputRef}
+                type="file"
+                accept=".json"
+                onChange={(e) => {
+                  setPushError(null);
+                  setWorkflowFile(e.target.files?.[0] ?? null);
+                }}
+                disabled={pushing}
+                className="cursor-pointer text-sm text-text-body file:mr-3 file:cursor-pointer file:rounded-control file:border-0 file:bg-surface-brand file:px-3.5 file:py-2 file:text-sm file:font-semibold file:text-white"
+              />
+            </div>
+
+            {pushError && <p className="text-xs font-medium text-aa-red-700">{pushError}</p>}
+
+            <Button type="button" onClick={handlePushWorkflow} disabled={pushing || !workflowFile} className="self-start">
+              {pushing ? "Pushing to all students…" : "Push to All Students"}
+            </Button>
+
+            {pushing && (
+              <div className="flex items-center gap-2 text-xs font-medium text-text-muted">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-border-hairline-strong border-t-surface-brand" />
+                This can take a few seconds for all 33 instances…
+              </div>
+            )}
+
+            {pushSummary && (
+              <p className="text-xs font-medium text-text-body">
+                {pushSummary.succeeded} succeeded, {pushSummary.failed} failed (of {pushSummary.total}).
+              </p>
+            )}
+
+            {pushResults.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {pushResults.map((r) => (
+                  <div
+                    key={r.subdomain}
+                    className="flex items-center justify-between gap-3 rounded-card-inner border border-border-hairline bg-surface-card px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-text-strong">
+                        {r.studentName} <span className="font-mono text-xs text-text-faint">({r.subdomain})</span>
+                      </div>
+                      <div className={`truncate text-xs ${r.success ? "text-text-muted" : "text-aa-red-700"}`}>
+                        {r.message}
+                      </div>
+                    </div>
+                    <span
+                      className={`flex-none font-mono text-[10px] tracking-widest uppercase ${
+                        r.success ? "text-text-accent" : "text-aa-red-700"
+                      }`}
+                    >
+                      {r.success ? "success" : "failed"}
+                    </span>
                   </div>
                 ))}
               </div>

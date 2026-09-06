@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/signup-avatar-ticket";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { SITE_URL } from "@/lib/siteUrl";
 import { isValidEmail, isValidUsername } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     password,
     options: {
       data: { username: username.trim() },
-      emailRedirectTo: `${new URL(request.url).origin}/login`,
+      emailRedirectTo: `${SITE_URL}/login`,
     },
   });
 

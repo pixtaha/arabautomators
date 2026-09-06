@@ -6,17 +6,18 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { createClient } from "@/lib/supabase/client";
-import type { ModuleWithTasks } from "@/lib/data/tasks";
+import type { ModuleWithTasks, TaskRow } from "@/lib/data/tasks";
 
-type TaskStatus = "ready" | "done" | "problem";
+type ActionableStatus = "ready" | "done" | "problem";
+type TaskStatus = ActionableStatus | "pending_review";
 
-const STATUS_OPTIONS: { key: TaskStatus; label: string }[] = [
+const STATUS_OPTIONS: { key: ActionableStatus; label: string }[] = [
   { key: "ready", label: "Ready" },
   { key: "done", label: "Done" },
   { key: "problem", label: "Have a problem" },
 ];
 
-const STATUS_CLASSES: Record<TaskStatus, { solid: string; hover: string; dot: string }> = {
+const STATUS_CLASSES: Record<ActionableStatus, { solid: string; hover: string; dot: string }> = {
   ready: {
     solid: "border-aa-amber-400 bg-aa-amber-400 text-text-strong",
     hover: "hover:border-aa-amber-400 hover:bg-surface-accent-soft hover:text-aa-amber-700",
@@ -121,26 +122,32 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
       });
   }, [user]);
 
-  async function toggleStatus(taskId: string, key: TaskStatus) {
+  // A task flagged requires_review never gets marked 'done' directly from
+  // the client -- clicking "Done" on one submits 'pending_review' instead,
+  // which award_task_points() (points_ledger migration) ignores until an
+  // admin flips it to 'done' from the review queue.
+  async function toggleStatus(task: TaskRow, key: ActionableStatus) {
     if (!user) return;
-    const current = status.get(taskId);
+    const current = status.get(task.id);
+    const targetStatus: TaskStatus = key === "done" && task.requires_review ? "pending_review" : key;
+    const isTogglingOff = current === key || (key === "done" && current === "pending_review");
     const supabase = createClient();
 
-    if (current === key) {
+    if (isTogglingOff) {
       setStatus((prev) => {
         const next = new Map(prev);
-        next.delete(taskId);
+        next.delete(task.id);
         return next;
       });
-      await supabase.from("student_task_status").delete().eq("task_id", taskId).eq("student_id", user.id);
+      await supabase.from("student_task_status").delete().eq("task_id", task.id).eq("student_id", user.id);
       return;
     }
 
-    setStatus((prev) => new Map(prev).set(taskId, key));
+    setStatus((prev) => new Map(prev).set(task.id, targetStatus));
     await supabase
       .from("student_task_status")
       .upsert(
-        { task_id: taskId, student_id: user.id, status: key, updated_at: new Date().toISOString() },
+        { task_id: task.id, student_id: user.id, status: targetStatus, updated_at: new Date().toISOString() },
         { onConflict: "task_id,student_id" },
       );
   }
@@ -297,14 +304,20 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
                                 ) : (
                                   <div className="flex flex-none items-center gap-1">
                                     {STATUS_OPTIONS.map((option) => {
-                                      const isActive = active === option.key;
-                                      const classes = STATUS_CLASSES[option.key];
+                                      // Pending review is only ever reached through the "Done"
+                                      // button on a requires_review task -- it renders in the
+                                      // same slot, styled like "ready" (awaiting action) rather
+                                      // than "done" (awarded), since points haven't posted yet.
+                                      const isPendingReview = option.key === "done" && active === "pending_review";
+                                      const isActive = active === option.key || isPendingReview;
+                                      const classes = isPendingReview ? STATUS_CLASSES.ready : STATUS_CLASSES[option.key];
+                                      const label = isPendingReview ? "Pending review" : option.label;
                                       return (
                                         <button
                                           key={option.key}
                                           type="button"
                                           aria-pressed={isActive}
-                                          onClick={() => toggleStatus(task.id, option.key)}
+                                          onClick={() => toggleStatus(task, option.key)}
                                           className={`group flex h-6 cursor-pointer items-center rounded-full border px-2 transition-[transform,background-color,border-color,color] duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[.985] ${
                                             isActive ? classes.solid : `border-transparent text-text-faint ${classes.hover}`
                                           }`}
@@ -319,7 +332,7 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
                                           >
                                             <span className="min-w-0 overflow-hidden">
                                               <span className="block pl-1.5 font-mono text-[10.5px] font-bold tracking-widest whitespace-nowrap uppercase">
-                                                {option.label}
+                                                {label}
                                               </span>
                                             </span>
                                           </span>

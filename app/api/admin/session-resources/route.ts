@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("session_resources")
-    .select("id, type, title, file_url, bunny_video_id, order_index")
+    .select("id, type, title, file_url, bunny_video_id, order_index, file_size_bytes, page_count")
     .eq("session_id", sessionId)
     .order("order_index");
 
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const title = formData.get("title");
   const file = formData.get("file");
   const text = formData.get("text");
+  const pageCountRaw = formData.get("pageCount");
 
   if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
     return Response.json({ error: "Choose a session." }, { status: 400 });
@@ -54,6 +55,15 @@ export async function POST(request: Request) {
   }
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "Title is required." }, { status: 400 });
+  }
+
+  let pageCount: number | null = null;
+  if (type === "pdf" && typeof pageCountRaw === "string" && pageCountRaw.trim()) {
+    const parsed = Number(pageCountRaw);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return Response.json({ error: "Page count must be a positive whole number." }, { status: 400 });
+    }
+    pageCount = parsed;
   }
 
   let uploadBlob: Blob;
@@ -111,8 +121,10 @@ export async function POST(request: Request) {
       title: title.trim(),
       file_url: publicUrl,
       order_index: count ?? 0,
+      file_size_bytes: uploadBlob.size,
+      page_count: pageCount,
     })
-    .select("id, type, title, file_url, bunny_video_id, order_index")
+    .select("id, type, title, file_url, bunny_video_id, order_index, file_size_bytes, page_count")
     .single();
 
   if (insertError || !inserted) {

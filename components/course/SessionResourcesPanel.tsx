@@ -1,7 +1,9 @@
 import { BunnyPlayer } from "@/components/course/BunnyPlayer";
 import { ExpandableVideoCard } from "@/components/course/ExpandableVideoCard";
+import { VoiceNoteCard } from "@/components/course/VoiceNoteCard";
 import { WorkflowResourceCard } from "@/components/course/WorkflowResourceCard";
 import type { SessionResourceRow } from "@/lib/data/courseSessions";
+import { formatFileSize } from "@/lib/sessionResources";
 
 function DownloadIcon() {
   return (
@@ -55,31 +57,45 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
       <div>
         <div className="mb-2.5 h-[3px] w-10 bg-surface-ink" />
         <h2 className="font-display text-lg font-bold tracking-tight text-text-strong">Session resources</h2>
-        <p className="mt-1 text-xs text-text-muted">Download the files before the next session.</p>
+        <p className="mt-1 text-xs text-text-muted">
+          {resources.length} file{resources.length === 1 ? "" : "s"}. Download the workflow before the next session.
+        </p>
       </div>
 
       {documents.length > 0 && (
         <Section label="Documents">
           <div className="flex flex-col gap-2">
-            {documents.map((d) => (
-              <div key={d.id} className="flex items-center gap-3 rounded-card-inner bg-surface-sunken p-3">
-                <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-strong">
-                  <FileIcon />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text-strong">{d.title}</span>
-                {d.file_url && (
-                  <a
-                    href={d.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Download ${d.title}`}
-                    className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-body transition-colors hover:bg-surface-hover"
-                  >
-                    <DownloadIcon />
-                  </a>
-                )}
-              </div>
-            ))}
+            {documents.map((d) => {
+              const meta = [
+                "PDF",
+                d.file_size_bytes ? formatFileSize(d.file_size_bytes) : null,
+                d.page_count ? `${d.page_count} pages` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <div key={d.id} className="flex items-center gap-3 rounded-card-inner bg-surface-sunken p-3">
+                  <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-strong">
+                    <FileIcon />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-text-strong">{d.title}</span>
+                    <span className="mt-0.5 block font-mono text-[11px] text-text-muted">{meta}</span>
+                  </span>
+                  {d.file_url && (
+                    <a
+                      href={d.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Download ${d.title}`}
+                      className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-body transition-colors hover:bg-surface-hover"
+                    >
+                      <DownloadIcon />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Section>
       )}
@@ -111,12 +127,7 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
       {audio.length > 0 && (
         <Section label="Voice note">
           <div className="flex flex-col gap-3">
-            {audio.map((a) => (
-              <div key={a.id} className="rounded-card-inner bg-surface-sunken p-3.5">
-                <div className="mb-2 text-sm text-text-body">{a.title}</div>
-                {a.file_url && <audio controls src={a.file_url} className="w-full" />}
-              </div>
-            ))}
+            {audio.map((a) => (a.file_url ? <VoiceNoteCard key={a.id} title={a.title} fileUrl={a.file_url} /> : null))}
           </div>
         </Section>
       )}

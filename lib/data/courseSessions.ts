@@ -20,9 +20,12 @@ export interface CourseSessionRow {
   status: string;
   summary_ar: string | null;
   notes: string | null;
+  notes_title: string | null;
   covered_topics: string[] | null;
   homework: string | null;
   tags: string[] | null;
+  warning_title: string | null;
+  warning_body: string | null;
 }
 
 export interface SessionResourceRow {
@@ -33,6 +36,8 @@ export interface SessionResourceRow {
   file_url: string | null;
   bunny_video_id: string | null;
   order_index: number;
+  file_size_bytes: number | null;
+  page_count: number | null;
 }
 
 export interface CourseSessionData {

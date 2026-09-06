@@ -37,9 +37,14 @@ export function HeroPrimaryCta() {
           Start Learning Automation
         </Link>
       ) : (
-        <Link href="/signup" className={buttonClasses("primary", "lg")}>
-          Discover Round 2 details
-        </Link>
+        <a
+          href="https://wa.me/201002667188"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonClasses("primary", "lg")}
+        >
+          Contact Us
+        </a>
       )}
     </div>
   );

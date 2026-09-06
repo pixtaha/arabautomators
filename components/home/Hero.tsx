@@ -32,12 +32,12 @@ export function Hero() {
           </div>
 
           <h1 className="font-display text-[34px] leading-[1.05] font-extrabold tracking-[-0.04em] text-text-strong text-balance sm:text-5xl lg:text-[52px] xl:text-6xl">
-            Your fast track to building real AI automations
+            Your fastest track to real AI automations
             <span className="text-surface-brand">.</span>
           </h1>
 
           <p className="max-w-[52ch] text-base leading-relaxed text-text-body text-pretty sm:text-lg">
-            Six weeks. Live in Arabic.{" "}
+            Eight weeks. Live in Arabic.{" "}
             <span className="font-semibold text-text-accent">Build workflows</span>, connect APIs,
             use <span className="font-semibold text-text-accent">AI</span>, and learn how
             automation is actually used in business.

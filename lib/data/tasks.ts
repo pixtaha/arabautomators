@@ -11,6 +11,7 @@ export interface TaskRow {
   description: string | null;
   description_ar: string | null;
   unlock_date: string | null;
+  requires_review: boolean;
 }
 
 export interface ModuleWithTasks {
@@ -28,7 +29,7 @@ export async function getModulesWithTasks(): Promise<ModuleWithTasks[]> {
     supabase.from("modules").select("id, order_index, title, available_date").order("order_index"),
     supabase
       .from("tasks")
-      .select("id, module_id, order_index, title, title_ar, description, description_ar, unlock_date")
+      .select("id, module_id, order_index, title, title_ar, description, description_ar, unlock_date, requires_review")
       .order("order_index"),
   ]);
 

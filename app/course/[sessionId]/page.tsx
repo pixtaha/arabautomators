@@ -6,6 +6,7 @@ import { CourseSessionShell } from "@/components/course/CourseSessionShell";
 import { SessionVideoHero } from "@/components/course/SessionVideoHero";
 import { SessionNotesCard } from "@/components/course/SessionNotesCard";
 import { SessionResourcesPanel } from "@/components/course/SessionResourcesPanel";
+import { SessionWarningCallout } from "@/components/course/SessionWarningCallout";
 
 export async function generateMetadata(props: PageProps<"/course/[sessionId]">) {
   const supabase = await createClient();
@@ -55,7 +56,14 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
         moduleTitle={module?.title ?? "Module"}
         sessions={moduleSessions}
         currentSessionId={session.id}
-        resources={<SessionResourcesPanel resources={resources} />}
+        resources={
+          <>
+            <SessionResourcesPanel resources={resources} />
+            {session.warning_title && (
+              <SessionWarningCallout title={session.warning_title} body={session.warning_body} />
+            )}
+          </>
+        }
       >
         <SessionVideoHero session={session} module={module} />
         <SessionNotesCard session={session} />

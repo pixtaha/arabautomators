@@ -1,16 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-const POINTS_BREAKDOWN = [
-  { label: "Attendance", points: 46 },
-  { label: "Tasks", points: 34 },
-  { label: "Quizzes", points: 120 },
-  { label: "Live participation", points: 140 },
-];
+interface LedgerRow {
+  source_type: string;
+  points: number;
+}
 
-export function PointsCard({ points, maxPoints }: { points: number; maxPoints: number }) {
+function labelForSource(sourceType: string) {
+  return `${sourceType.charAt(0).toUpperCase()}${sourceType.slice(1)}s`;
+}
+
+export function PointsCard({ studentId }: { studentId: string }) {
+  const [rows, setRows] = useState<LedgerRow[] | null>(null);
   const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+    supabase
+      .from("points_ledger")
+      .select("source_type, points")
+      .eq("student_id", studentId)
+      .then(({ data }) => {
+        if (active) setRows((data as LedgerRow[] | null) ?? []);
+      });
+    return () => {
+      active = false;
+    };
+  }, [studentId]);
+
+  const total = (rows ?? []).reduce((sum, row) => sum + row.points, 0);
+
+  const breakdown = new Map<string, number>();
+  for (const row of rows ?? []) {
+    breakdown.set(row.source_type, (breakdown.get(row.source_type) ?? 0) + row.points);
+  }
+  const breakdownList = [...breakdown.entries()].sort((a, b) => b[1] - a[1]);
 
   return (
     <div
@@ -19,55 +46,53 @@ export function PointsCard({ points, maxPoints }: { points: number; maxPoints: n
       onMouseLeave={() => setExpanded(false)}
     >
       <div className="flex items-center justify-between">
-        <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-          Your points · demo data
-        </span>
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
-          className="font-mono text-[10px] tracking-widest text-text-faint uppercase transition-colors hover:text-text-accent"
-        >
-          {expanded ? "hide" : "breakdown"}
-        </button>
+        <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Your points</span>
+        {breakdownList.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+            className="font-mono text-[10px] tracking-widest text-text-faint uppercase transition-colors hover:text-text-accent"
+          >
+            {expanded ? "hide" : "breakdown"}
+          </button>
+        )}
       </div>
 
       <span className="font-display text-[36px] leading-none font-extrabold tracking-tight text-text-strong">
-        {points}.
-        <span className="digit-flicker">00</span>
-        <span className="ml-1.5 font-mono text-base font-medium text-text-faint">
-          / {maxPoints}.00
-        </span>
+        {rows === null ? "—" : total}
       </span>
 
-      <p className="text-xs text-text-muted">
-        Preview only — real points start counting once live sessions begin.
-      </p>
+      {rows !== null && rows.length === 0 && (
+        <p className="text-xs text-text-muted">Complete a task or a live quiz to start earning points.</p>
+      )}
 
-      <div
-        className="grid transition-[grid-template-rows] duration-300 ease-[var(--ease-smooth)]"
-        style={{ gridTemplateRows: expanded ? "1fr" : "0fr" }}
-      >
-        <div className="overflow-hidden">
-          <div
-            className="flex flex-col gap-2 border-t border-border-hairline pt-3 mt-1 transition-opacity duration-300 ease-[var(--ease-smooth)]"
-            style={{ opacity: expanded ? 1 : 0 }}
-          >
-            {POINTS_BREAKDOWN.map((item, index) => (
-              <div key={item.label} className="flex items-center justify-between text-xs">
-                <span className="inline-flex items-center gap-1.5 text-text-muted">
-                  <span
-                    className="animate-blink block h-1.5 w-1.5 rounded-full bg-surface-brand"
-                    style={{ animationDelay: `${index * 150}ms` }}
-                  />
-                  {item.label}
-                </span>
-                <span className="font-mono text-text-strong">{item.points} points</span>
-              </div>
-            ))}
+      {breakdownList.length > 0 && (
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-[var(--ease-smooth)]"
+          style={{ gridTemplateRows: expanded ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div
+              className="flex flex-col gap-2 border-t border-border-hairline pt-3 mt-1 transition-opacity duration-300 ease-[var(--ease-smooth)]"
+              style={{ opacity: expanded ? 1 : 0 }}
+            >
+              {breakdownList.map(([sourceType, points], index) => (
+                <div key={sourceType} className="flex items-center justify-between text-xs">
+                  <span className="inline-flex items-center gap-1.5 text-text-muted">
+                    <span
+                      className="animate-blink block h-1.5 w-1.5 rounded-full bg-surface-brand"
+                      style={{ animationDelay: `${index * 150}ms` }}
+                    />
+                    {labelForSource(sourceType)}
+                  </span>
+                  <span className="font-mono text-text-strong">{points} points</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

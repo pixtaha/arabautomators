@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logoutCurrentDeviceSession } from "@/lib/auth/device-session";
+import { SITE_URL } from "@/lib/siteUrl";
 
 const REASONS: Record<string, string> = {
   "session-invalid": "Your session is no longer authorized. Please log in again.",
@@ -14,7 +15,7 @@ export async function POST() {
 export async function GET(request: NextRequest) {
   await logoutCurrentDeviceSession();
   const reason = request.nextUrl.searchParams.get("reason") || "session-invalid";
-  const loginUrl = new URL("/login", request.url);
+  const loginUrl = new URL("/login", SITE_URL);
   loginUrl.searchParams.set("message", REASONS[reason] || REASONS["session-invalid"]);
   return NextResponse.redirect(loginUrl);
 }

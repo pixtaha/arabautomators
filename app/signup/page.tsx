@@ -335,7 +335,7 @@ export default function SignupPage() {
               This email isn&apos;t registered as a student yet. Want to join the course?
             </p>
             <a
-              href="https://wa.me/201554445243"
+              href="https://wa.me/201002667188"
               target="_blank"
               rel="noopener noreferrer"
               className={buttonClasses("primary", "md")}

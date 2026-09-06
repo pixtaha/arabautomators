@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { PointsRange } from "@/lib/time";
 
-export interface LeaderboardEntry {
-  username: string;
+interface BoardRow {
+  rank: number;
+  name: string;
   points: number;
+  isMe: boolean;
 }
+
+const RANGE_OPTIONS: { key: PointsRange; label: string }[] = [
+  { key: "day", label: "Today" },
+  { key: "week", label: "This week" },
+  { key: "month", label: "This month" },
+  { key: "all", label: "All time" },
+];
 
 const RANK_STYLE: Record<number, { ring: string; medal: string }> = {
   1: { ring: "#F8C800", medal: "🥇" },
@@ -15,69 +25,116 @@ const RANK_STYLE: Record<number, { ring: string; medal: string }> = {
 
 const VISIBLE_COUNT = 5;
 
-export function LeaderboardCard({ entries }: { entries: LeaderboardEntry[] }) {
+export function LeaderboardCard() {
+  const [range, setRange] = useState<PointsRange>("all");
+  const [board, setBoard] = useState<BoardRow[] | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/points/leaderboard?range=${range}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (active) setBoard(data.board ?? []);
+      })
+      .catch(() => {
+        if (active) setBoard([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [range]);
+
+  const entries = board ?? [];
   const visibleEntries = showAll ? entries : entries.slice(0, VISIBLE_COUNT);
 
   return (
     <div className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-          Top 10 leaderboard
-        </span>
-        <span className="font-mono text-[10px] tracking-widest text-text-muted uppercase">Demo</span>
-      </div>
-
-      <div className="flex flex-col">
-        {visibleEntries.map((entry, index) => {
-          const rank = index + 1;
-          const isRunnerUp = rank === 4 || rank === 5;
-          const rankStyle = RANK_STYLE[rank];
-
-          return (
-            <div
-              key={entry.username}
-              className={`flex items-center gap-3 rounded-card-inner px-2 py-2.5 transition-all duration-200 ease-[var(--ease-smooth)] hover:scale-[1.015] hover:bg-surface-hover ${
-                index < visibleEntries.length - 1 ? "border-b border-border-hairline" : ""
-              } ${isRunnerUp ? "bg-surface-sunken/60" : ""} ${rank > 5 ? "reveal-row" : ""}`}
-              style={rank > 5 ? { animationDelay: `${(rank - 6) * 70}ms` } : undefined}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Leaderboard</span>
+        <div className="flex flex-wrap items-center gap-1">
+          {RANGE_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => {
+                setBoard(null);
+                setShowAll(false);
+                setRange(option.key);
+              }}
+              className={`rounded-full px-2 py-1 font-mono text-[10px] tracking-widest uppercase transition-colors ${
+                range === option.key
+                  ? "bg-surface-brand text-text-inverse"
+                  : "text-text-muted hover:bg-surface-sunken"
+              }`}
             >
-              <span
-                className={`flex-none font-mono text-text-faint ${
-                  rank === 1 ? "w-6 text-sm font-bold" : "w-5 text-[11px]"
-                }`}
-              >
-                {rank}
-              </span>
-
-              <span
-                className={`grid flex-none place-items-center rounded-full bg-surface-brand-soft font-display font-bold text-text-accent ${
-                  rank === 1 ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs"
-                }`}
-                style={
-                  rankStyle
-                    ? { boxShadow: `0 0 0 2px var(--color-surface-card), 0 0 0 4px ${rankStyle.ring}` }
-                    : undefined
-                }
-              >
-                {entry.username.charAt(0).toUpperCase()}
-              </span>
-
-              <span
-                className={`min-w-0 flex-1 truncate font-medium text-text-strong ${
-                  rank === 1 ? "text-base" : "text-sm"
-                }`}
-              >
-                @{entry.username}
-              </span>
-
-              {rankStyle && <span className="flex-none text-base leading-none">{rankStyle.medal}</span>}
-
-              <span className="flex-none font-mono text-xs text-text-muted">{entry.points} pts</span>
-            </div>
-          );
-        })}
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {board === null ? (
+        <div className="h-24 animate-pulse rounded-card-inner bg-surface-sunken" />
+      ) : entries.length === 0 ? (
+        <p className="text-sm text-text-muted">No points earned in this range yet.</p>
+      ) : (
+        <div className="flex flex-col">
+          {visibleEntries.map((entry, index) => {
+            const rank = index + 1;
+            const isRunnerUp = rank === 4 || rank === 5;
+            const rankStyle = RANK_STYLE[rank];
+
+            return (
+              <div
+                key={`${range}-${entry.rank}-${entry.name}`}
+                className={`flex items-center gap-3 rounded-card-inner px-2 py-2.5 transition-all duration-200 ease-[var(--ease-smooth)] hover:scale-[1.015] hover:bg-surface-hover ${
+                  index < visibleEntries.length - 1 ? "border-b border-border-hairline" : ""
+                } ${isRunnerUp ? "bg-surface-sunken/60" : ""} ${entry.isMe ? "ring-2 ring-surface-brand" : ""}`}
+              >
+                <span
+                  className={`flex-none font-mono text-text-faint ${
+                    rank === 1 ? "w-6 text-sm font-bold" : "w-5 text-[11px]"
+                  }`}
+                >
+                  {rank}
+                </span>
+
+                <span
+                  className={`grid flex-none place-items-center rounded-full bg-surface-brand-soft font-display font-bold text-text-accent ${
+                    rank === 1 ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs"
+                  }`}
+                  style={
+                    rankStyle
+                      ? { boxShadow: `0 0 0 2px var(--color-surface-card), 0 0 0 4px ${rankStyle.ring}` }
+                      : undefined
+                  }
+                >
+                  {entry.name.charAt(0).toUpperCase()}
+                </span>
+
+                <span
+                  className={`min-w-0 flex-1 truncate font-medium text-text-strong ${
+                    rank === 1 ? "text-base" : "text-sm"
+                  }`}
+                >
+                  @{entry.name}
+                </span>
+
+                {entry.isMe && (
+                  <span className="flex-none rounded-full bg-surface-brand px-2 py-0.5 font-mono text-[10px] font-bold text-text-inverse uppercase">
+                    You
+                  </span>
+                )}
+
+                {rankStyle && <span className="flex-none text-base leading-none">{rankStyle.medal}</span>}
+
+                <span className="flex-none font-mono text-xs text-text-muted">{entry.points} pts</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {entries.length > VISIBLE_COUNT && (
         <button
@@ -88,10 +145,6 @@ export function LeaderboardCard({ entries }: { entries: LeaderboardEntry[] }) {
           {showAll ? "Show less" : `Show more (ranks 6–${entries.length})`}
         </button>
       )}
-
-      <p className="text-xs text-text-muted">
-        Placeholder rankings — will populate with real students once live sessions begin.
-      </p>
     </div>
   );
 }

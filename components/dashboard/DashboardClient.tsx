@@ -18,21 +18,6 @@ import type { ModuleWithSession } from "@/lib/data/modules";
 const COURSE_ACCESS_ENABLED = true;
 
 const DEMO_PROGRESS_PERCENT = 15;
-const DEMO_POINTS = 340;
-const DEMO_MAX_POINTS = 5000;
-
-const DEMO_LEADERBOARD = [
-  { username: "sara_automates", points: 1240 },
-  { username: "omar_dev", points: 1180 },
-  { username: "khaled_n8n", points: 1050 },
-  { username: "mona_ai", points: 980 },
-  { username: "yousef_flows", points: 910 },
-  { username: "layla_builds", points: 860 },
-  { username: "tarek_agent", points: 790 },
-  { username: "nour_rag", points: 720 },
-  { username: "ali_webhook", points: 650 },
-  { username: "hana_supabase", points: 590 },
-];
 
 export function DashboardClient({
   modules,
@@ -117,10 +102,10 @@ export function DashboardClient({
             </div>
 
             <div className="flex flex-col gap-6">
-              <PointsCard points={DEMO_POINTS} maxPoints={DEMO_MAX_POINTS} />
+              <PointsCard studentId={user.id} />
               <WorkflowsCard />
               <N8nStatusCard />
-              <LeaderboardCard entries={DEMO_LEADERBOARD} />
+              <LeaderboardCard />
             </div>
           </div>
         </div>
