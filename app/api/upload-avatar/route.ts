@@ -61,17 +61,26 @@ export async function POST(request: Request) {
     data: { publicUrl },
   } = supabase.storage.from("avatars").getPublicUrl(path);
 
-  await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", userId);
+  // The storage object lives at a stable, upserted path, but Supabase
+  // Storage serves it with `Cache-Control: max-age=3600` and no revalidation
+  // directive -- so a browser that already cached the previous avatar at
+  // this exact URL would keep showing it for up to an hour after a
+  // re-upload. Busting the cache with a version query param forces every
+  // consumer (this profile, the header, leaderboards, etc.) to fetch the
+  // new bytes immediately.
+  const versionedUrl = `${publicUrl}?v=${Date.now()}`;
+
+  await supabase.from("profiles").update({ avatar_url: versionedUrl }).eq("id", userId);
 
   // Mirror onto user_metadata so the client can render it without an extra
   // query. getUserById first so we merge rather than clobber the username
   // set at signUp.
   const { data: existing } = await supabase.auth.admin.getUserById(userId);
   await supabase.auth.admin.updateUserById(userId, {
-    user_metadata: { ...existing?.user?.user_metadata, avatar_url: publicUrl },
+    user_metadata: { ...existing?.user?.user_metadata, avatar_url: versionedUrl },
   });
 
   if (hasSignupTicket) cookieStore.delete(SIGNUP_AVATAR_COOKIE);
 
-  return Response.json({ url: publicUrl });
+  return Response.json({ url: versionedUrl });
 }

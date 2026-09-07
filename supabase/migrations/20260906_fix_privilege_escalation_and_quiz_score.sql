@@ -1,9 +1,5 @@
 -- ============================================================================
--- PROPOSED — NOT APPLIED. Written by the overnight audit (2026-09-06).
---
--- Deliberately named with a PROPOSED_ prefix so it does NOT sort into the
--- normal migration sequence and cannot be picked up by an automated apply.
--- Review, then rename to 20260906_... and apply manually.
+-- Written by the overnight audit (2026-09-06); reviewed and applied.
 --
 -- Revised 2026-09-06 after review: prevent_profile_role_change() switched from
 -- SECURITY DEFINER to SECURITY INVOKER (as DEFINER its current_user check was

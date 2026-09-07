@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { ChangeEvent } from "react";
 import { UploadProgress } from "@/components/ui/UploadProgress";
+import { Avatar } from "@/components/ui/Avatar";
 import { CameraIcon, CalendarIcon, GraduationCapIcon } from "@/components/profile/icons";
 
 type UploadPhase = "idle" | "compressing" | "uploading";
@@ -44,8 +45,7 @@ export function ProfileHeader({
           >
             <span className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-surface-brand-soft font-display text-2xl font-black text-aa-green-800">
               {displayAvatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={displayAvatar} alt="" className="h-full w-full object-cover object-center" />
+                <Avatar src={displayAvatar} className="h-full w-full" />
               ) : (
                 initial
               )}

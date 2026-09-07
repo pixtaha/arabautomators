@@ -10,7 +10,6 @@ import { compressImage, uploadAvatar } from "@/lib/imageUpload";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfileStats } from "@/components/profile/ProfileStats";
 import { ProfileAbout } from "@/components/profile/ProfileAbout";
-import { ProfileActivity } from "@/components/profile/ProfileActivity";
 import { ProfileAccount } from "@/components/profile/ProfileAccount";
 
 type UploadPhase = "idle" | "compressing" | "uploading";
@@ -19,12 +18,6 @@ interface Profile {
   username: string | null;
   avatar_url: string | null;
   created_at: string | null;
-}
-
-interface NotificationPrefs {
-  session_reminders: boolean;
-  weekly_digest: boolean;
-  workflow_replies: boolean;
 }
 
 function formatJoined(iso: string | null | undefined) {
@@ -37,7 +30,6 @@ export default function ProfilePage() {
   const { user, loading } = useSupabaseUser();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -59,17 +51,6 @@ export default function ProfilePage() {
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => setProfile(data ?? null));
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    const supabase = createClient();
-    supabase
-      .from("notification_preferences")
-      .select("session_reminders, weekly_digest, workflow_replies")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setPrefs(data ?? null));
   }, [user]);
 
   useEffect(() => {
@@ -115,22 +96,6 @@ export default function ProfilePage() {
       avatar_url: result.url!,
       created_at: prev?.created_at ?? null,
     }));
-  }
-
-  async function handleTogglePref(key: keyof NotificationPrefs, checked: boolean) {
-    if (!user) return;
-
-    setPrefs((prev) => ({
-      session_reminders: prev?.session_reminders ?? true,
-      weekly_digest: prev?.weekly_digest ?? true,
-      workflow_replies: prev?.workflow_replies ?? false,
-      [key]: checked,
-    }));
-
-    const supabase = createClient();
-    await supabase
-      .from("notification_preferences")
-      .upsert({ user_id: user.id, [key]: checked, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
   }
 
   async function handleSignOut() {
@@ -186,15 +151,9 @@ export default function ProfilePage() {
             joinedLabel={formatJoined(profile?.created_at ?? user.created_at)}
           />
 
-          <ProfileStats />
+          <ProfileStats studentId={user.id} />
           <ProfileAbout user={user} />
-          <ProfileActivity />
-          <ProfileAccount
-            prefs={prefs}
-            onTogglePref={handleTogglePref}
-            onSignOut={handleSignOut}
-            signingOut={signingOut}
-          />
+          <ProfileAccount onSignOut={handleSignOut} signingOut={signingOut} />
         </div>
       </main>
 

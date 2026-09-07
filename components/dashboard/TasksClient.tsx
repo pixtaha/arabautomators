@@ -87,6 +87,7 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
     "there";
   const [status, setStatus] = useState<Map<string, TaskStatus>>(new Map());
   const [statusLoaded, setStatusLoaded] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   // Modules collapse independently. On load only the first module that has
   // tasks is open, so the other ten read as a roadmap instead of a wall.
@@ -122,16 +123,37 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
       });
   }, [user]);
 
+  useEffect(() => {
+    if (!statusError) return;
+    const timer = setTimeout(() => setStatusError(null), 4000);
+    return () => clearTimeout(timer);
+  }, [statusError]);
+
   // A task flagged requires_review never gets marked 'done' directly from
   // the client -- clicking "Done" on one submits 'pending_review' instead,
   // which award_task_points() (points_ledger migration) ignores until an
   // admin flips it to 'done' from the review queue.
+  //
+  // Every branch below flips `status` immediately (optimistic) and only
+  // awaits the Supabase write afterwards -- the write's `error` is what
+  // decides whether to roll the optimistic change back to `previous`,
+  // rather than blocking the UI update on the network round trip.
   async function toggleStatus(task: TaskRow, key: ActionableStatus) {
     if (!user) return;
-    const current = status.get(task.id);
+    const previous = status.get(task.id);
     const targetStatus: TaskStatus = key === "done" && task.requires_review ? "pending_review" : key;
-    const isTogglingOff = current === key || (key === "done" && current === "pending_review");
+    const isTogglingOff = previous === key || (key === "done" && previous === "pending_review");
     const supabase = createClient();
+
+    function rollback() {
+      setStatus((prev) => {
+        const next = new Map(prev);
+        if (previous === undefined) next.delete(task.id);
+        else next.set(task.id, previous);
+        return next;
+      });
+      setStatusError("Couldn't update the task status. Please try again.");
+    }
 
     if (isTogglingOff) {
       setStatus((prev) => {
@@ -139,17 +161,23 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
         next.delete(task.id);
         return next;
       });
-      await supabase.from("student_task_status").delete().eq("task_id", task.id).eq("student_id", user.id);
+      const { error } = await supabase
+        .from("student_task_status")
+        .delete()
+        .eq("task_id", task.id)
+        .eq("student_id", user.id);
+      if (error) rollback();
       return;
     }
 
     setStatus((prev) => new Map(prev).set(task.id, targetStatus));
-    await supabase
+    const { error } = await supabase
       .from("student_task_status")
       .upsert(
         { task_id: task.id, student_id: user.id, status: targetStatus, updated_at: new Date().toISOString() },
         { onConflict: "task_id,student_id" },
       );
+    if (error) rollback();
   }
 
   if (loading || !user) {
@@ -388,6 +416,15 @@ export function TasksClient({ modules }: { modules: ModuleWithTasks[] }) {
           )}
         </div>
       </main>
+
+      {statusError && (
+        <div
+          role="alert"
+          className="fixed inset-x-0 bottom-6 z-30 mx-auto w-fit max-w-[90vw] rounded-control border border-aa-red-500 bg-surface-danger px-4 py-2.5 text-sm font-semibold text-text-inverse shadow-card"
+        >
+          {statusError}
+        </div>
+      )}
 
       <Footer />
     </div>

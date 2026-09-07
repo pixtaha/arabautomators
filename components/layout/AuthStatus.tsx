@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Avatar } from "@/components/ui/Avatar";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 
 export function AuthStatus() {
@@ -27,8 +28,7 @@ export function AuthStatus() {
         className="grid h-9 w-9 flex-none place-items-center overflow-hidden rounded-full border border-black/[.06] bg-surface-brand-soft font-display text-sm font-bold text-aa-green-800 transition-[transform,border-color,box-shadow] duration-150 hover:border-surface-brand hover:shadow-[0_0_0_3px_var(--color-surface-brand-soft)] active:scale-[.97]"
       >
         {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-full w-full object-cover object-center" />
+          <Avatar src={avatarUrl} className="h-full w-full" />
         ) : (
           initial
         )}

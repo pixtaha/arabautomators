@@ -15,6 +15,7 @@ export interface CourseSessionRow {
   module_id: string | null;
   order_index: number;
   title: string;
+  description: string | null;
   live_date: string | null;
   main_video_bunny_id: string | null;
   status: string;

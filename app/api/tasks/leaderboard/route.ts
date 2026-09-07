@@ -38,13 +38,15 @@ export async function GET(request: Request) {
 
   const studentIds = ranked.map(([id]) => id);
   const { data: profiles } = studentIds.length
-    ? await supabase.from("profiles").select("id, username").in("id", studentIds)
+    ? await supabase.from("profiles").select("id, username, avatar_url").in("id", studentIds)
     : { data: [] };
   const usernameById = new Map((profiles ?? []).map((p) => [p.id, p.username as string | null]));
+  const avatarUrlById = new Map((profiles ?? []).map((p) => [p.id, p.avatar_url as string | null]));
 
   const board = ranked.map(([studentId, tasksCompleted], index) => ({
     rank: index + 1,
     name: usernameById.get(studentId) ?? "Student",
+    avatarUrl: avatarUrlById.get(studentId) ?? null,
     tasksCompleted,
     isMe: studentId === session.user.id,
   }));

@@ -29,20 +29,30 @@ export async function GET(request: Request) {
     totals.set(row.student_id, (totals.get(row.student_id) ?? 0) + row.points);
   }
 
-  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_ROWS);
+  const fullyRanked = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const ranked = fullyRanked.slice(0, MAX_ROWS);
+
+  // Kept alongside the top-20 `board` so a caller like /profile can show a
+  // student's own rank even when they've fallen outside it, without a
+  // second full aggregation pass.
+  const myIndex = fullyRanked.findIndex(([id]) => id === session.user.id);
+  const myRank = myIndex === -1 ? null : myIndex + 1;
+  const myPoints = totals.get(session.user.id) ?? 0;
 
   const studentIds = ranked.map(([id]) => id);
   const { data: profiles } = studentIds.length
-    ? await supabase.from("profiles").select("id, username").in("id", studentIds)
+    ? await supabase.from("profiles").select("id, username, avatar_url").in("id", studentIds)
     : { data: [] };
   const usernameById = new Map((profiles ?? []).map((p) => [p.id, p.username as string | null]));
+  const avatarUrlById = new Map((profiles ?? []).map((p) => [p.id, p.avatar_url as string | null]));
 
   const board = ranked.map(([studentId, total], index) => ({
     rank: index + 1,
     name: usernameById.get(studentId) ?? "Student",
+    avatarUrl: avatarUrlById.get(studentId) ?? null,
     points: total,
     isMe: studentId === session.user.id,
   }));
 
-  return Response.json({ board, range });
+  return Response.json({ board, range, myRank, myPoints, totalRanked: fullyRanked.length });
 }

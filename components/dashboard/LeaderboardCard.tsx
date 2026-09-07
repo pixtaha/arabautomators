@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Avatar } from "@/components/ui/Avatar";
+import { createClient } from "@/lib/supabase/client";
 import type { PointsRange } from "@/lib/time";
 
 interface BoardRow {
   rank: number;
   name: string;
+  avatarUrl: string | null;
   points: number;
   isMe: boolean;
 }
@@ -32,16 +35,40 @@ export function LeaderboardCard() {
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/points/leaderboard?range=${range}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (active) setBoard(data.board ?? []);
-      })
-      .catch(() => {
-        if (active) setBoard([]);
-      });
+
+    function load() {
+      fetch(`/api/points/leaderboard?range=${range}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (active) setBoard(data.board ?? []);
+        })
+        .catch(() => {
+          if (active) setBoard([]);
+        });
+    }
+
+    load();
+
+    // "leaderboard:points" is a fixed, shared broadcast topic -- a Postgres
+    // trigger (20260906_leaderboard_broadcast.sql) sends to this exact name
+    // whenever ANY student earns points, so every viewer refetches and sees
+    // everyone's updates live, not just their own. This is unlike
+    // useLiveQuiz's per-mount unique channel name: that trick only works
+    // for postgres_changes (topic is just a local label there; delivery is
+    // decided by the .on() filter). For a broadcast, the topic itself is
+    // the routing address the trigger and every client must agree on, so it
+    // can't be made unique per instance without breaking delivery. This
+    // component is only ever rendered from one place, so there's no
+    // collision risk from sharing this fixed name.
+    const supabase = createClient();
+    const channel = supabase
+      .channel("leaderboard:points", { config: { private: true } })
+      .on("broadcast", { event: "changed" }, () => load())
+      .subscribe();
+
     return () => {
       active = false;
+      supabase.removeChannel(channel);
     };
   }, [range]);
 
@@ -101,7 +128,7 @@ export function LeaderboardCard() {
                 </span>
 
                 <span
-                  className={`grid flex-none place-items-center rounded-full bg-surface-brand-soft font-display font-bold text-text-accent ${
+                  className={`grid flex-none place-items-center overflow-hidden rounded-full bg-surface-brand-soft font-display font-bold text-text-accent ${
                     rank === 1 ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs"
                   }`}
                   style={
@@ -110,7 +137,11 @@ export function LeaderboardCard() {
                       : undefined
                   }
                 >
-                  {entry.name.charAt(0).toUpperCase()}
+                  {entry.avatarUrl ? (
+                    <Avatar src={entry.avatarUrl} className="h-full w-full" />
+                  ) : (
+                    entry.name.charAt(0).toUpperCase()
+                  )}
                 </span>
 
                 <span

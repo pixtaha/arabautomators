@@ -31,14 +31,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const studentIds = (attempts ?? []).map((a) => a.student_id);
   const { data: profiles } = studentIds.length
-    ? await supabase.from("profiles").select("id, username").in("id", studentIds)
+    ? await supabase.from("profiles").select("id, username, avatar_url").in("id", studentIds)
     : { data: [] };
 
   const usernameById = new Map((profiles ?? []).map((p) => [p.id, p.username as string | null]));
+  const avatarUrlById = new Map((profiles ?? []).map((p) => [p.id, p.avatar_url as string | null]));
 
   const board = (attempts ?? []).map((a, index) => ({
     rank: index + 1,
     name: usernameById.get(a.student_id) ?? "Student",
+    avatarUrl: avatarUrlById.get(a.student_id) ?? null,
     score: a.score as number,
     isMe: a.student_id === session.user.id,
   }));

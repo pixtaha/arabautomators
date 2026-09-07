@@ -3,8 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAdjacentSessions, getCourseSessionData } from "@/lib/data/courseSessions";
 import { CourseSessionShell } from "@/components/course/CourseSessionShell";
-import { SessionVideoHero } from "@/components/course/SessionVideoHero";
+import { SessionHeader } from "@/components/course/SessionHeader";
+import { SessionVideoPlayer } from "@/components/course/SessionVideoPlayer";
+import { SessionVideoResourcesRow } from "@/components/course/SessionVideoResourcesRow";
 import { SessionNotesCard } from "@/components/course/SessionNotesCard";
+import { SessionPartsSection } from "@/components/course/SessionPartsSection";
 import { SessionResourcesPanel } from "@/components/course/SessionResourcesPanel";
 import { SessionWarningCallout } from "@/components/course/SessionWarningCallout";
 
@@ -53,9 +56,6 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
     <div className="relative min-h-screen overflow-hidden bg-surface-page">
       <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
       <CourseSessionShell
-        moduleTitle={module?.title ?? "Module"}
-        sessions={moduleSessions}
-        currentSessionId={session.id}
         resources={
           <>
             <SessionResourcesPanel resources={resources} />
@@ -65,7 +65,9 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
           </>
         }
       >
-        <SessionVideoHero session={session} module={module} />
+        <SessionHeader session={session} />
+        <SessionVideoPlayer session={session} />
+        <SessionVideoResourcesRow resources={resources} />
         <SessionNotesCard session={session} />
 
         {(prev || next) && (
@@ -112,6 +114,12 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
             )}
           </div>
         )}
+
+        <SessionPartsSection
+          moduleTitle={module?.title ?? "Module"}
+          sessions={moduleSessions}
+          currentSessionId={session.id}
+        />
       </CourseSessionShell>
     </div>
   );

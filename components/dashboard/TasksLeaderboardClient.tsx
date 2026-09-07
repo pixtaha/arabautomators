@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { Avatar } from "@/components/ui/Avatar";
+import { createClient } from "@/lib/supabase/client";
 import type { PointsRange } from "@/lib/time";
 
 interface BoardRow {
   rank: number;
   name: string;
+  avatarUrl: string | null;
   tasksCompleted: number;
   isMe: boolean;
 }
@@ -31,16 +34,33 @@ export function TasksLeaderboardClient() {
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/tasks/leaderboard?range=${range}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (active) setBoard(data.board ?? []);
-      })
-      .catch(() => {
-        if (active) setBoard([]);
-      });
+
+    function load() {
+      fetch(`/api/tasks/leaderboard?range=${range}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (active) setBoard(data.board ?? []);
+        })
+        .catch(() => {
+          if (active) setBoard([]);
+        });
+    }
+
+    load();
+
+    // "leaderboard:tasks" is a fixed, shared broadcast topic -- see
+    // LeaderboardCard.tsx for why this can't use a per-mount unique name
+    // the way useLiveQuiz's channel does (the topic here is the actual
+    // pub/sub routing address the trigger and every client must share).
+    const supabase = createClient();
+    const channel = supabase
+      .channel("leaderboard:tasks", { config: { private: true } })
+      .on("broadcast", { event: "changed" }, () => load())
+      .subscribe();
+
     return () => {
       active = false;
+      supabase.removeChannel(channel);
     };
   }, [range]);
 
@@ -117,7 +137,7 @@ export function TasksLeaderboardClient() {
                       </span>
 
                       <span
-                        className={`grid flex-none place-items-center rounded-full bg-surface-brand-soft font-display font-bold text-text-accent ${
+                        className={`grid flex-none place-items-center overflow-hidden rounded-full bg-surface-brand-soft font-display font-bold text-text-accent ${
                           rank === 1 ? "h-11 w-11 text-sm" : "h-8 w-8 text-xs"
                         }`}
                         style={
@@ -126,7 +146,11 @@ export function TasksLeaderboardClient() {
                             : undefined
                         }
                       >
-                        {entry.name.charAt(0).toUpperCase()}
+                        {entry.avatarUrl ? (
+                          <Avatar src={entry.avatarUrl} className="h-full w-full" />
+                        ) : (
+                          entry.name.charAt(0).toUpperCase()
+                        )}
                       </span>
 
                       <span

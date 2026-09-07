@@ -1,5 +1,3 @@
-import { BunnyPlayer } from "@/components/course/BunnyPlayer";
-import { ExpandableVideoCard } from "@/components/course/ExpandableVideoCard";
 import { VoiceNoteCard } from "@/components/course/VoiceNoteCard";
 import { WorkflowResourceCard } from "@/components/course/WorkflowResourceCard";
 import type { SessionResourceRow } from "@/lib/data/courseSessions";
@@ -47,10 +45,9 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
   const notes = resources.filter((r) => r.type === "text");
   const audio = resources.filter((r) => r.type === "voice_note");
   const workflows = resources.filter((r) => r.type === "workflow_file");
-  const videos = resources.filter((r) => r.type === "video");
-  const credentialVideos = resources.filter((r) => r.type === "credential_video");
+  const panelCount = documents.length + notes.length + audio.length + workflows.length;
 
-  if (resources.length === 0) return null;
+  if (panelCount === 0) return null;
 
   return (
     <div className="flex flex-col gap-5 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card">
@@ -58,7 +55,7 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
         <div className="mb-2.5 h-[3px] w-10 bg-surface-ink" />
         <h2 className="font-display text-lg font-bold tracking-tight text-text-strong">Session resources</h2>
         <p className="mt-1 text-xs text-text-muted">
-          {resources.length} file{resources.length === 1 ? "" : "s"}. Download the workflow before the next session.
+          {panelCount} file{panelCount === 1 ? "" : "s"}. Download the workflow before the next session.
         </p>
       </div>
 
@@ -142,45 +139,6 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
         </Section>
       )}
 
-      {videos.length > 0 && (
-        <Section label="Videos">
-          <div className="flex flex-col gap-2">
-            {videos.map((v) => (
-              <ExpandableVideoCard
-                key={v.id}
-                title={v.title}
-                player={
-                  v.bunny_video_id ? (
-                    <BunnyPlayer videoId={v.bunny_video_id} />
-                  ) : v.file_url ? (
-                    <video controls src={v.file_url} className="w-full rounded-lg" />
-                  ) : null
-                }
-              />
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {credentialVideos.length > 0 && (
-        <Section label="Credential setup">
-          <div className="flex flex-col gap-2">
-            {credentialVideos.map((v) => (
-              <ExpandableVideoCard
-                key={v.id}
-                title={v.title}
-                player={
-                  v.bunny_video_id ? (
-                    <BunnyPlayer videoId={v.bunny_video_id} />
-                  ) : v.file_url ? (
-                    <video controls src={v.file_url} className="w-full rounded-lg" />
-                  ) : null
-                }
-              />
-            ))}
-          </div>
-        </Section>
-      )}
     </div>
   );
 }

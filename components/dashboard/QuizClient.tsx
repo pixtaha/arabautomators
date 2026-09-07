@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { Avatar } from "@/components/ui/Avatar";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { useLiveQuiz, type LiveQuizRow } from "@/lib/hooks/useLiveQuiz";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +20,7 @@ interface AttemptRow {
 interface LeaderboardRow {
   rank: number;
   name: string;
+  avatarUrl: string | null;
   score: number;
   isMe: boolean;
 }
@@ -202,16 +204,35 @@ function ResultView({
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/quizzes/${quiz.id}/leaderboard`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (active) setBoard(data.board ?? []);
-      })
-      .catch(() => {
-        if (active) setBoard([]);
-      });
+
+    function load() {
+      fetch(`/api/quizzes/${quiz.id}/leaderboard`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (active) setBoard(data.board ?? []);
+        })
+        .catch(() => {
+          if (active) setBoard([]);
+        });
+    }
+
+    load();
+
+    // "leaderboard:quiz:<quiz.id>" is a fixed, shared broadcast topic --
+    // see LeaderboardCard.tsx for why this can't use a per-mount unique
+    // name the way useLiveQuiz's channel does. This one genuinely updates
+    // live for every other student completing this same quiz too, unlike
+    // the quiz_attempts-RLS-gated subscription it replaces (which could
+    // only ever have fired for the viewer's own row).
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`leaderboard:quiz:${quiz.id}`, { config: { private: true } })
+      .on("broadcast", { event: "changed" }, () => load())
+      .subscribe();
+
     return () => {
       active = false;
+      supabase.removeChannel(channel);
     };
   }, [quiz.id]);
 
@@ -269,8 +290,12 @@ function ResultView({
                 }`}
               >
                 <span className="w-6 flex-none font-mono text-xs text-text-muted">{row.rank}</span>
-                <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-surface-brand-soft font-display text-xs font-bold text-text-accent">
-                  {row.name.charAt(0).toUpperCase()}
+                <span className="grid h-8 w-8 flex-none place-items-center overflow-hidden rounded-full bg-surface-brand-soft font-display text-xs font-bold text-text-accent">
+                  {row.avatarUrl ? (
+                    <Avatar src={row.avatarUrl} className="h-full w-full" />
+                  ) : (
+                    row.name.charAt(0).toUpperCase()
+                  )}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text-strong">{row.name}</span>
                 {row.isMe && (
@@ -342,24 +367,32 @@ function QuizFlow({ quiz, user }: { quiz: LiveQuizRow; user: User }) {
     setAnswers((prev) => ({ ...prev, [question.id]: optionId }));
   }
 
+  // Flips to the results view immediately (score is already fully computed
+  // client-side by scoreQuiz) and only awaits the insert afterwards -- its
+  // `error` decides whether to roll back to the quiz view and restore the
+  // draft, rather than blocking the results view on the network round trip.
   async function finishQuiz() {
     setSubmitting(true);
     setSubmitError(null);
 
     const { score } = scoreQuiz(quiz.quiz_json, answers);
     const completedAt = new Date().toISOString();
+    const submittedAnswers = answers;
+
+    clearDraft(user.id, quiz.id);
+    setAttempt({ score, answers: submittedAnswers, completed_at: completedAt });
+
     const supabase = createClient();
     const { error } = await supabase
       .from("quiz_attempts")
-      .insert({ quiz_id: quiz.id, student_id: user.id, score, answers, completed_at: completedAt });
+      .insert({ quiz_id: quiz.id, student_id: user.id, score, answers: submittedAnswers, completed_at: completedAt });
 
     setSubmitting(false);
     if (error) {
+      setAttempt(null);
+      saveDraft(user.id, quiz.id, { idx, answers: submittedAnswers });
       setSubmitError("Could not submit your quiz. Please try again.");
-      return;
     }
-    clearDraft(user.id, quiz.id);
-    setAttempt({ score, answers, completed_at: completedAt });
   }
 
   function goNext(questions: QuizQuestion[]) {
