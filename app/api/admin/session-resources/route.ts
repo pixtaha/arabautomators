@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("session_resources")
-    .select("id, type, title, file_url, bunny_video_id, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count")
+    .select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count")
     .eq("session_id", sessionId)
     .order("order_index");
 
@@ -65,8 +65,6 @@ export async function POST(request: Request) {
   const supabase = createAdminClient();
   if (isVideoResource(type)) {
     const link = parseVideoLink({
-      videoProvider: formData.get("videoProvider") ?? undefined,
-      bunnyVideoId: formData.get("bunnyVideoId"),
       vdocipherVideoId: formData.get("vdocipherVideoId"),
     });
     if (link.error || !link.source || file instanceof File) {
@@ -84,7 +82,7 @@ export async function POST(request: Request) {
     const { data: resource, error } = await supabase.from("session_resources").insert({
       session_id: sessionId, type, title: title.trim(), ...videoResourceFields(link.source),
       file_url: null, order_index: (last?.[0]?.order_index ?? -1) + 1,
-    }).select("id, type, title, file_url, bunny_video_id, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count").single();
+    }).select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count").single();
     if (error || !resource) return Response.json({ error: "Could not save resource." }, { status: 500 });
     return Response.json({ resource: withoutVideoFileUrl(resource) });
   }
@@ -114,7 +112,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "A file is required for this resource type." }, { status: 400 });
     }
     if (isVideoFile(file)) {
-      return Response.json({ error: "Course videos must use a Bunny Stream video resource." }, { status: 400 });
+      return Response.json({ error: "Course videos must use a VdoCipher video resource." }, { status: 400 });
     }
     if (file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
       return Response.json(
@@ -158,7 +156,7 @@ export async function POST(request: Request) {
       file_size_bytes: uploadBlob.size,
       page_count: pageCount,
     })
-    .select("id, type, title, file_url, bunny_video_id, order_index, file_size_bytes, page_count")
+    .select("id, type, title, file_url, order_index, file_size_bytes, page_count")
     .single();
 
   if (insertError || !inserted) {

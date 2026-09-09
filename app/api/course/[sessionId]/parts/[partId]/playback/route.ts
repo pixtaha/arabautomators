@@ -27,8 +27,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
     }
     const admin = createAdminClient();
     const [{ data: session, error: sessionError }, { data: resources, error: resourceError }, { data: profile }] = await Promise.all([
-      admin.from("sessions").select("id,title,main_video_bunny_id,main_video_provider,main_video_vdocipher_id").eq("id", sessionId).maybeSingle(),
-      admin.from("session_resources").select("id,session_id,title,type,order_index,bunny_video_id,video_provider,vdocipher_video_id")
+      admin.from("sessions").select("id,title,main_video_provider,main_video_vdocipher_id").eq("id", sessionId).maybeSingle(),
+      admin.from("session_resources").select("id,session_id,title,type,order_index,video_provider,vdocipher_video_id")
         .eq("session_id", sessionId).in("type", ["video", "credential_video"]),
       admin.from("profiles").select("username").eq("id", activeSession.user.id).maybeSingle(),
     ]);

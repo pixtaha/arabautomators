@@ -8,12 +8,11 @@ import { parseVideoLink, type VideoProvider } from "@/lib/video-provider";
 export interface MainVideoSession {
   id: string;
   main_video_provider: VideoProvider | null;
-  main_video_bunny_id: string | null;
   main_video_vdocipher_id: string | null;
 }
 
 export function SessionMainVideoEditor({ session, onSaved }: { session: MainVideoSession; onSaved: (session: MainVideoSession) => void }) {
-  const [value, setValue] = useState(() => videoLinkDraft(session.main_video_provider, session.main_video_bunny_id, session.main_video_vdocipher_id));
+  const [value, setValue] = useState(() => videoLinkDraft(session.main_video_vdocipher_id));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -31,7 +30,7 @@ export function SessionMainVideoEditor({ session, onSaved }: { session: MainVide
       });
       const data = await response.json();
       if (!response.ok || !data.session) { setError(data.error ?? "Could not link the main session video."); return; }
-      setValue(videoLinkDraft(data.session.main_video_provider, data.session.main_video_bunny_id, data.session.main_video_vdocipher_id));
+      setValue(videoLinkDraft(data.session.main_video_vdocipher_id));
       onSaved(data.session);
       setSuccess(true);
     } catch {

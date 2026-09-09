@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useState } from "react";
-import { BunnyPlayer } from "@/components/course/BunnyPlayer";
 import { VdoCipherPlayer } from "@/components/course/VdoCipherPlayer";
 import type { SessionVideoPart } from "@/lib/session-video-parts";
 
@@ -14,10 +13,8 @@ export function SessionVideoPlaylist({ sessionId, parts }: { sessionId: string; 
   return (
     <section className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-3 shadow-card sm:p-6" aria-label="Session videos">
       <div id={playerId}>
-        {selected.source?.provider === "vdocipher" ? (
+        {selected.source ? (
           <VdoCipherPlayer key={`${sessionId}:${selected.id}`} sessionId={sessionId} partId={selected.id} title={selected.title} />
-        ) : selected.source?.provider === "bunny" ? (
-          <BunnyPlayer key={`${sessionId}:${selected.id}`} sessionId={sessionId} videoId={selected.source.videoId} title={selected.title} />
         ) : (
           <div className="flex aspect-video items-center justify-center rounded-card bg-surface-ink p-4 text-center text-sm text-white" role="status">This video is temporarily unavailable.</div>
         )}

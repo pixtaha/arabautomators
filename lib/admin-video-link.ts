@@ -1,19 +1,8 @@
 import "server-only";
-import { getBunnyVideo } from "@/lib/bunny";
 import { VIDEO_ID_PATTERNS, type VideoSource } from "@/lib/video-provider";
 
 /** Verify processing server-side without generating playback credentials. */
 export async function verifyVideoLink(source: VideoSource): Promise<{ error: string; status: number } | null> {
-  if (source.provider === "bunny") {
-    try {
-      return (await getBunnyVideo(source.videoId))?.isFinished ? null : {
-        error: "Video must exist and finish processing in the configured Bunny library.", status: 400,
-      };
-    } catch {
-      return { error: "Could not verify the Bunny video. Try again later.", status: 502 };
-    }
-  }
-
   const unavailable = { error: "Could not verify the VdoCipher video. Try again later.", status: 502 };
   const notReady = { error: "Video must exist and finish processing in your VdoCipher account.", status: 400 };
   const secret = process.env.VDOCIPHER_API_SECRET;

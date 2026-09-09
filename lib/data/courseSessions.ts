@@ -18,8 +18,7 @@ export interface CourseSessionRow {
   title: string;
   description: string | null;
   live_date: string | null;
-  main_video_bunny_id: string | null;
-  main_video_provider: "bunny" | "vdocipher" | null;
+  main_video_provider: "vdocipher" | null;
   main_video_vdocipher_id: string | null;
   status: string;
   summary_ar: string | null;
@@ -38,8 +37,7 @@ export interface SessionResourceRow {
   type: string;
   title: string;
   file_url: string | null;
-  bunny_video_id: string | null;
-  video_provider: "bunny" | "vdocipher" | null;
+  video_provider: "vdocipher" | null;
   vdocipher_video_id: string | null;
   order_index: number;
   file_size_bytes: number | null;

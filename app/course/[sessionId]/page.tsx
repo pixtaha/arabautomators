@@ -4,8 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdjacentSessions, getCourseSessionData } from "@/lib/data/courseSessions";
 import { CourseSessionShell } from "@/components/course/CourseSessionShell";
 import { SessionHeader } from "@/components/course/SessionHeader";
-import { SessionVideoPlayer } from "@/components/course/SessionVideoPlayer";
-import { SessionVideoResourcesRow } from "@/components/course/SessionVideoResourcesRow";
 import { SessionVideoPlaylist } from "@/components/course/SessionVideoPlaylist";
 import { getSessionVideoParts } from "@/lib/session-video-parts";
 import { SessionNotesCard } from "@/components/course/SessionNotesCard";
@@ -69,14 +67,7 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
         }
       >
         <SessionHeader session={session} />
-        {videoParts ? (
-          <SessionVideoPlaylist sessionId={session.id} parts={videoParts} />
-        ) : (
-          <>
-            <SessionVideoPlayer session={session} />
-            <SessionVideoResourcesRow resources={resources} />
-          </>
-        )}
+        <SessionVideoPlaylist sessionId={session.id} parts={videoParts} />
         <SessionNotesCard session={session} />
 
         {(prev || next) && (

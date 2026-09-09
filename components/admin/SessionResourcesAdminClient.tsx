@@ -36,7 +36,6 @@ interface ResourceRow {
   type: string;
   title: string;
   file_url: string | null;
-  bunny_video_id: string | null;
   video_provider: VideoProvider | null;
   vdocipher_video_id: string | null;
   order_index: number;
@@ -181,9 +180,7 @@ export function SessionResourcesAdminClient() {
     if (type === "text") {
       formData.append("text", text);
     } else if (isVideoResource(type)) {
-      formData.append("videoProvider", videoLink.videoProvider);
-      formData.append(videoLink.videoProvider === "vdocipher" ? "vdocipherVideoId" : "bunnyVideoId",
-        (videoLink.videoProvider === "vdocipher" ? videoLink.vdocipherVideoId : videoLink.bunnyVideoId).trim());
+      formData.append("vdocipherVideoId", videoLink.vdocipherVideoId.trim());
     } else if (file) {
       formData.append("file", file);
     }
@@ -481,8 +478,8 @@ export function SessionResourcesAdminClient() {
                     </div>
                     {isVideoResource(r.type) && (
                       <div className={`flex min-w-0 flex-col gap-2 ${linkingId === r.id ? "order-last w-full" : ""}`}>
-                        <span className="text-xs text-text-muted">{resolveVideoSource(r.video_provider, r.bunny_video_id, r.vdocipher_video_id)
-                          ? `${r.video_provider === "vdocipher" ? "VdoCipher" : "Bunny"} video linked` : "Needs video link"}</span>
+                        <span className="text-xs text-text-muted">{resolveVideoSource(r.video_provider, null, r.vdocipher_video_id)
+                          ? "VdoCipher video linked" : "Needs video link"}</span>
                         {linkingId === r.id ? (
                           <>
                             <VideoProviderFields value={replacementVideoLink} onChange={setReplacementVideoLink} disabled={submitting} />
@@ -490,7 +487,7 @@ export function SessionResourcesAdminClient() {
                             <button type="button" disabled={submitting} onClick={() => setLinkingId(null)} className="cursor-pointer text-xs text-text-muted underline">Cancel</button>
                           </>
                         ) : (
-                          <button type="button" disabled={submitting} onClick={() => { setLinkingId(r.id); setReplacementVideoLink(videoLinkDraft(r.video_provider, r.bunny_video_id, r.vdocipher_video_id)); }} className="cursor-pointer text-xs text-text-accent underline">{resolveVideoSource(r.video_provider, r.bunny_video_id, r.vdocipher_video_id) ? "Replace video" : "Link video"}</button>
+                          <button type="button" disabled={submitting} onClick={() => { setLinkingId(r.id); setReplacementVideoLink(videoLinkDraft(r.vdocipher_video_id)); }} className="cursor-pointer text-xs text-text-accent underline">{resolveVideoSource(r.video_provider, null, r.vdocipher_video_id) ? "Replace video" : "Link video"}</button>
                         )}
                       </div>
                     )}
