@@ -1,5 +1,11 @@
 services:
   arab-automators-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     image: arabautomators-platform:latest
     container_name: arabautomators-platform
     restart: unless-stopped
@@ -9,7 +15,11 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       BUNNY_STREAM_LIBRARY_ID: ${BUNNY_STREAM_LIBRARY_ID}
       BUNNY_STREAM_API_KEY: ${BUNNY_STREAM_API_KEY}
+      BUNNY_STREAM_TOKEN_SECURITY_KEY: ${BUNNY_STREAM_TOKEN_SECURITY_KEY}
+      BUNNY_DRM_ENFORCEMENT_ENABLED: ${BUNNY_DRM_ENFORCEMENT_ENABLED:-false}
       BUNNY_STREAM_CDN_HOSTNAME: ${BUNNY_STREAM_CDN_HOSTNAME}
+      VDOCIPHER_API_SECRET: ${VDOCIPHER_API_SECRET}
+      SESSION_VIDEO_PROVIDER_OVERRIDES_ENABLED: ${SESSION_VIDEO_PROVIDER_OVERRIDES_ENABLED:-true}
     mem_limit: 768m
     networks:
       - arabautomators-net

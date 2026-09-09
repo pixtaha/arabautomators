@@ -16,7 +16,6 @@ const MAX_ROWS = 20;
 // hold transient 'ready' / 'problem' / 'pending_review' values.
 export async function GET(request: Request) {
   const session = await getActiveDeviceSession();
-  if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const rangeParam = new URL(request.url).searchParams.get("range") ?? "all";
   const range: PointsRange = (POINTS_RANGES as string[]).includes(rangeParam) ? (rangeParam as PointsRange) : "all";
@@ -48,7 +47,7 @@ export async function GET(request: Request) {
     name: usernameById.get(studentId) ?? "Student",
     avatarUrl: avatarUrlById.get(studentId) ?? null,
     tasksCompleted,
-    isMe: studentId === session.user.id,
+    isMe: studentId === session?.user.id,
   }));
 
   return Response.json({ board, range });

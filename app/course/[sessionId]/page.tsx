@@ -6,6 +6,8 @@ import { CourseSessionShell } from "@/components/course/CourseSessionShell";
 import { SessionHeader } from "@/components/course/SessionHeader";
 import { SessionVideoPlayer } from "@/components/course/SessionVideoPlayer";
 import { SessionVideoResourcesRow } from "@/components/course/SessionVideoResourcesRow";
+import { SessionVideoPlaylist } from "@/components/course/SessionVideoPlaylist";
+import { getSessionVideoParts } from "@/lib/session-video-parts";
 import { SessionNotesCard } from "@/components/course/SessionNotesCard";
 import { SessionPartsSection } from "@/components/course/SessionPartsSection";
 import { SessionResourcesPanel } from "@/components/course/SessionResourcesPanel";
@@ -50,6 +52,7 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
   if (!data) notFound();
 
   const { session, module, moduleSessions, resources } = data;
+  const videoParts = getSessionVideoParts(session, resources);
   const { prev, next } = getAdjacentSessions(moduleSessions, session.id);
 
   return (
@@ -66,8 +69,14 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
         }
       >
         <SessionHeader session={session} />
-        <SessionVideoPlayer session={session} />
-        <SessionVideoResourcesRow resources={resources} />
+        {videoParts ? (
+          <SessionVideoPlaylist sessionId={session.id} parts={videoParts} />
+        ) : (
+          <>
+            <SessionVideoPlayer session={session} />
+            <SessionVideoResourcesRow resources={resources} />
+          </>
+        )}
         <SessionNotesCard session={session} />
 
         {(prev || next) && (

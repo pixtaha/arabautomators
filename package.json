@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:video-security": "node --conditions=react-server --experimental-strip-types --experimental-vm-modules tests/video-security.test.mjs",
+    "test:vdocipher": "node --experimental-vm-modules tests/vdocipher.test.mjs",
+    "test:public-access": "node --experimental-strip-types --experimental-vm-modules tests/public-leaderboard.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

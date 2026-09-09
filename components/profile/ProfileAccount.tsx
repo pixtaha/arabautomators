@@ -28,7 +28,7 @@ export function ProfileAccount({
         <ChevronRightIcon className="h-[18px] w-[18px] flex-none" />
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t-2 border-border-hairline pt-5">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4 pt-2">
         <span className="max-w-[40ch] text-sm text-text-muted">
           Signing out ends this session on this device only.
         </span>

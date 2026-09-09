@@ -5,9 +5,13 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { VideoProviderFields, videoLinkDraft } from "@/components/admin/VideoProviderFields";
+import { SessionMainVideoEditor, type MainVideoSession } from "@/components/admin/SessionMainVideoEditor";
+import { parseVideoLink, resolveVideoSource, type VideoProvider } from "@/lib/video-provider";
 import {
   SESSION_RESOURCE_MAX_FILE_SIZE_BYTES,
   SESSION_RESOURCE_MAX_FILE_SIZE_LABEL,
+  isVideoResource,
 } from "@/lib/sessionResources";
 
 const RESOURCE_TYPES = [
@@ -21,8 +25,7 @@ const RESOURCE_TYPES = [
 
 type ResourceType = (typeof RESOURCE_TYPES)[number]["value"];
 
-interface SessionOption {
-  id: string;
+interface SessionOption extends MainVideoSession {
   title: string;
   orderIndex: number;
   moduleOrderIndex: number | null;
@@ -34,6 +37,8 @@ interface ResourceRow {
   title: string;
   file_url: string | null;
   bunny_video_id: string | null;
+  video_provider: VideoProvider | null;
+  vdocipher_video_id: string | null;
   order_index: number;
   file_size_bytes: number | null;
   page_count: number | null;
@@ -99,6 +104,9 @@ export function SessionResourcesAdminClient() {
   const [type, setType] = useState<ResourceType>("pdf");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [videoLink, setVideoLink] = useState(() => videoLinkDraft());
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [replacementVideoLink, setReplacementVideoLink] = useState(() => videoLinkDraft());
   const [pageCount, setPageCount] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,11 +161,15 @@ export function SessionResourcesAdminClient() {
       setFormError("Note text is required.");
       return;
     }
-    if (type !== "text" && !file) {
+    if (isVideoResource(type)) {
+      const parsed = parseVideoLink(videoLink);
+      if (parsed.error) { setFormError(parsed.error); return; }
+    }
+    if (type !== "text" && !isVideoResource(type) && !file) {
       setFormError("Choose a file to upload.");
       return;
     }
-    if (file && file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
+    if (!isVideoResource(type) && file && file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
       setFormError(`File must be ${SESSION_RESOURCE_MAX_FILE_SIZE_LABEL} or smaller.`);
       return;
     }
@@ -168,6 +180,10 @@ export function SessionResourcesAdminClient() {
     formData.append("title", title.trim());
     if (type === "text") {
       formData.append("text", text);
+    } else if (isVideoResource(type)) {
+      formData.append("videoProvider", videoLink.videoProvider);
+      formData.append(videoLink.videoProvider === "vdocipher" ? "vdocipherVideoId" : "bunnyVideoId",
+        (videoLink.videoProvider === "vdocipher" ? videoLink.vdocipherVideoId : videoLink.bunnyVideoId).trim());
     } else if (file) {
       formData.append("file", file);
     }
@@ -176,19 +192,22 @@ export function SessionResourcesAdminClient() {
     }
 
     setSubmitting(true);
-    setUploadProgress(type === "text" ? null : 0);
+    setUploadProgress(type === "text" || isVideoResource(type) ? null : 0);
 
     try {
-      const { status, data } = await uploadSessionResource(formData, setUploadProgress);
+      const { status, data } = await uploadSessionResource(formData, (percent) => {
+        if (!isVideoResource(type)) setUploadProgress(percent);
+      });
 
       if (status < 200 || status >= 300 || !data.resource) {
         setFormError(data.error ?? "Something went wrong.");
         return;
       }
 
-      setFormSuccess(`Uploaded "${data.resource.title}".`);
+      setFormSuccess(`${isVideoResource(type) ? "Linked" : "Uploaded"} "${data.resource.title}".`);
       setTitle("");
       setText("");
+      setVideoLink(videoLinkDraft());
       setPageCount("");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -197,6 +216,27 @@ export function SessionResourcesAdminClient() {
       setSubmitting(false);
       setUploadProgress(null);
     }
+  }
+
+  async function linkExistingVideo(id: string) {
+    setFormError(null);
+    const parsed = parseVideoLink(replacementVideoLink);
+    if (parsed.error) { setFormError(parsed.error); return; }
+    setSubmitting(true);
+    try {
+      const response = await fetch(`/api/admin/session-resources/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(replacementVideoLink),
+      });
+      const data = await response.json();
+      if (!response.ok) { setFormError(data.error ?? "Could not link video."); return; }
+      setLinkingId(null);
+      setReplacementVideoLink(videoLinkDraft());
+      setFormSuccess("Video link updated.");
+      loadResources(selectedSessionId);
+    } catch {
+      setFormError("Could not link video. Try again later.");
+    } finally { setSubmitting(false); }
   }
 
   async function handleDelete(id: string) {
@@ -277,6 +317,7 @@ export function SessionResourcesAdminClient() {
                 onChange={(e) => {
                   setResourcesLoading(true);
                   setSelectedSessionId(e.target.value);
+                  setLinkingId(null);
                 }}
                 disabled={submitting || sessionsLoading || sessions.length === 0}
                 className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25"
@@ -311,6 +352,7 @@ export function SessionResourcesAdminClient() {
             </div>
 
             <Input
+              id="resource-title"
               label="Title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -318,7 +360,9 @@ export function SessionResourcesAdminClient() {
               disabled={submitting}
             />
 
-            {type === "text" ? (
+            {isVideoResource(type) ? (
+              <VideoProviderFields value={videoLink} onChange={setVideoLink} disabled={submitting} />
+            ) : type === "text" ? (
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="text" className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
                   Note text
@@ -402,9 +446,14 @@ export function SessionResourcesAdminClient() {
             {formSuccess && <p className="text-xs font-medium text-text-accent">{formSuccess}</p>}
 
             <Button type="submit" disabled={submitting} className="self-start">
-              {submitting ? "Uploading…" : "Upload resource"}
+              {submitting ? "Saving…" : isVideoResource(type) ? "Link video" : "Upload resource"}
             </Button>
           </form>
+
+          {sessions.filter((session) => session.id === selectedSessionId).map((session) => (
+            <SessionMainVideoEditor key={session.id} session={session}
+              onSaved={(updated) => setSessions((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item))} />
+          ))}
 
           <div className="flex flex-col gap-3">
             <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
@@ -420,7 +469,7 @@ export function SessionResourcesAdminClient() {
                 {resources.map((r) => (
                   <div
                     key={r.id}
-                    className="flex items-center justify-between gap-3 rounded-card-inner border border-border-hairline bg-surface-card px-4 py-3"
+                    className={`flex gap-3 rounded-card-inner border border-border-hairline bg-surface-card px-4 py-3 ${isVideoResource(r.type) ? "flex-wrap items-start" : "items-center justify-between"}`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -430,7 +479,22 @@ export function SessionResourcesAdminClient() {
                       </div>
                       <div className="truncate text-sm font-semibold text-text-strong">{r.title}</div>
                     </div>
-                    {r.file_url && (
+                    {isVideoResource(r.type) && (
+                      <div className={`flex min-w-0 flex-col gap-2 ${linkingId === r.id ? "order-last w-full" : ""}`}>
+                        <span className="text-xs text-text-muted">{resolveVideoSource(r.video_provider, r.bunny_video_id, r.vdocipher_video_id)
+                          ? `${r.video_provider === "vdocipher" ? "VdoCipher" : "Bunny"} video linked` : "Needs video link"}</span>
+                        {linkingId === r.id ? (
+                          <>
+                            <VideoProviderFields value={replacementVideoLink} onChange={setReplacementVideoLink} disabled={submitting} />
+                            <button type="button" disabled={submitting} onClick={() => linkExistingVideo(r.id)} className="cursor-pointer text-xs text-text-accent underline">Save video link</button>
+                            <button type="button" disabled={submitting} onClick={() => setLinkingId(null)} className="cursor-pointer text-xs text-text-muted underline">Cancel</button>
+                          </>
+                        ) : (
+                          <button type="button" disabled={submitting} onClick={() => { setLinkingId(r.id); setReplacementVideoLink(videoLinkDraft(r.video_provider, r.bunny_video_id, r.vdocipher_video_id)); }} className="cursor-pointer text-xs text-text-accent underline">{resolveVideoSource(r.video_provider, r.bunny_video_id, r.vdocipher_video_id) ? "Replace video" : "Link video"}</button>
+                        )}
+                      </div>
+                    )}
+                    {!isVideoResource(r.type) && r.file_url && (
                       <a
                         href={r.file_url}
                         target="_blank"

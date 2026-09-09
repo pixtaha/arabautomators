@@ -1,0 +1,726 @@
+{
+  "recorded_at": "2026-09-07T14:10:56.595511+00:00",
+  "library_id": 739542,
+  "library_name": "arab-automators-course",
+  "restored": false,
+  "production_changes": false,
+  "videos": [
+    {
+      "video": "26d3d809-b72c-486f-a28c-05ef5719aff8",
+      "play_data": {
+        "libraryName": "arab-automators-course",
+        "enableDRM": false,
+        "drmVersion": 0,
+        "enableMP4Fallback": true,
+        "allowEarlyPlay": false,
+        "tokenAuthEnabled": false,
+        "widevineMinClientSecurityLevel": null,
+        "widevineEmeRobustness": null,
+        "widevineSdOnlyForL3": false,
+        "maxSoftwareWidevineResolution": null,
+        "isPlayable": true,
+        "isPlaylistPlayable": true,
+        "preferredPlaybackSource": "Playlist"
+      },
+      "master_key_tags": [],
+      "renditions": [
+        {
+          "rendition": "360p",
+          "segment_count": 13,
+          "key_methods": []
+        },
+        {
+          "rendition": "480p",
+          "segment_count": 13,
+          "key_methods": []
+        },
+        {
+          "rendition": "720p",
+          "segment_count": 13,
+          "key_methods": []
+        },
+        {
+          "rendition": "240p",
+          "segment_count": 13,
+          "key_methods": []
+        },
+        {
+          "rendition": "1080p",
+          "segment_count": 13,
+          "key_methods": []
+        }
+      ],
+      "originalUrl": {
+        "present": false
+      }
+    },
+    {
+      "video": "028bedbd-4e16-4333-be07-c046383bc58b",
+      "play_data": {
+        "libraryName": "arab-automators-course",
+        "enableDRM": false,
+        "drmVersion": 0,
+        "enableMP4Fallback": true,
+        "allowEarlyPlay": false,
+        "tokenAuthEnabled": false,
+        "widevineMinClientSecurityLevel": null,
+        "widevineEmeRobustness": null,
+        "widevineSdOnlyForL3": false,
+        "maxSoftwareWidevineResolution": null,
+        "isPlayable": true,
+        "isPlaylistPlayable": true,
+        "preferredPlaybackSource": "Playlist"
+      },
+      "master_key_tags": [],
+      "renditions": [
+        {
+          "rendition": "360p",
+          "segment_count": 6,
+          "key_methods": []
+        },
+        {
+          "rendition": "480p",
+          "segment_count": 6,
+          "key_methods": []
+        },
+        {
+          "rendition": "720p",
+          "segment_count": 6,
+          "key_methods": []
+        },
+        {
+          "rendition": "240p",
+          "segment_count": 6,
+          "key_methods": []
+        },
+        {
+          "rendition": "1080p",
+          "segment_count": 6,
+          "key_methods": []
+        }
+      ],
+      "originalUrl": {
+        "present": false
+      }
+    },
+    {
+      "video": "8558fc24-b253-449f-a628-68cc62327060",
+      "play_data": {
+        "libraryName": "arab-automators-course",
+        "enableDRM": false,
+        "drmVersion": 0,
+        "enableMP4Fallback": true,
+        "allowEarlyPlay": false,
+        "tokenAuthEnabled": false,
+        "widevineMinClientSecurityLevel": null,
+        "widevineEmeRobustness": null,
+        "widevineSdOnlyForL3": false,
+        "maxSoftwareWidevineResolution": null,
+        "isPlayable": true,
+        "isPlaylistPlayable": true,
+        "preferredPlaybackSource": "Playlist"
+      },
+      "master_key_tags": [],
+      "renditions": [
+        {
+          "rendition": "360p",
+          "segment_count": 9,
+          "key_methods": []
+        },
+        {
+          "rendition": "480p",
+          "segment_count": 9,
+          "key_methods": []
+        },
+        {
+          "rendition": "720p",
+          "segment_count": 9,
+          "key_methods": []
+        },
+        {
+          "rendition": "240p",
+          "segment_count": 9,
+          "key_methods": []
+        },
+        {
+          "rendition": "1080p",
+          "segment_count": 9,
+          "key_methods": []
+        }
+      ],
+      "originalUrl": {
+        "present": false
+      }
+    }
+  ],
+  "fallbacks": [
+    {
+      "video": "26d3d809-b72c-486f-a28c-05ef5719aff8",
+      "resolution": "360p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "7422590"
+    },
+    {
+      "video": "26d3d809-b72c-486f-a28c-05ef5719aff8",
+      "resolution": "480p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "13294061"
+    },
+    {
+      "video": "26d3d809-b72c-486f-a28c-05ef5719aff8",
+      "resolution": "720p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "24345127"
+    },
+    {
+      "video": "26d3d809-b72c-486f-a28c-05ef5719aff8",
+      "resolution": "1080p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "42827000"
+    },
+    {
+      "video": "028bedbd-4e16-4333-be07-c046383bc58b",
+      "resolution": "360p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "1041364"
+    },
+    {
+      "video": "028bedbd-4e16-4333-be07-c046383bc58b",
+      "resolution": "480p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "2618292"
+    },
+    {
+      "video": "028bedbd-4e16-4333-be07-c046383bc58b",
+      "resolution": "720p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "5213603"
+    },
+    {
+      "video": "028bedbd-4e16-4333-be07-c046383bc58b",
+      "resolution": "1080p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "11368880"
+    },
+    {
+      "video": "8558fc24-b253-449f-a628-68cc62327060",
+      "resolution": "360p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "1922654"
+    },
+    {
+      "video": "8558fc24-b253-449f-a628-68cc62327060",
+      "resolution": "480p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "3773988"
+    },
+    {
+      "video": "8558fc24-b253-449f-a628-68cc62327060",
+      "resolution": "720p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "6745259"
+    },
+    {
+      "video": "8558fc24-b253-449f-a628-68cc62327060",
+      "resolution": "1080p",
+      "http_status": 200,
+      "content_type": "video/mp4",
+      "content_length": "13518273"
+    }
+  ],
+  "resources": [
+    {
+      "id": "1afe54f0-aab2-4583-8d77-22a591cb9885",
+      "session_id": "7caceae2-03eb-4bc7-a80f-3ef463ff52fd",
+      "title": "Main video General",
+      "type": "video",
+      "bunny_video_id": null,
+      "file_url_present": true,
+      "file_host": "supabase.arabautomators.com"
+    },
+    {
+      "id": "6965a2fa-9dbf-422a-8d64-61e5ed7ce3e2",
+      "session_id": "7caceae2-03eb-4bc7-a80f-3ef463ff52fd",
+      "title": "Supabase",
+      "type": "credential_video",
+      "bunny_video_id": null,
+      "file_url_present": true,
+      "file_host": "supabase.arabautomators.com"
+    }
+  ],
+  "updated_at": "2026-09-07T14:32:18.283964+00:00",
+  "initial_library_admin_request": {
+    "method": "GET",
+    "url": "https://api.bunny.net/videolibrary/739542",
+    "http_status": 401,
+    "error_key": "authentication.failed",
+    "credential_type": "available Stream library key"
+  },
+  "library_admin_request": {
+    "method": "GET",
+    "url": "https://api.bunny.net/videolibrary/739542",
+    "http_status": 200,
+    "credential_type": "user-provided account credential; value not retained"
+  },
+  "blocker": "Enterprise DRM is not provisioned on the accessible account's only library; historical entitlement not located.",
+  "account_libraries": {
+    "recorded_at": "2026-09-07T14:21:52.078041+00:00",
+    "results": [
+      {
+        "path": "/videolibrary/739542",
+        "http_status": 200,
+        "library": {
+          "Id": 739542,
+          "Name": "arab-automators-course",
+          "DateCreated": "2026-08-29T15:17:34",
+          "DateModified": "2026-09-03T23:29:40",
+          "VideoCount": 3,
+          "EnableDRM": false,
+          "DrmVersion": 0,
+          "EnableMP4Fallback": true,
+          "KeepOriginalFiles": true,
+          "ExposeOriginals": false,
+          "AllowEarlyPlay": false,
+          "AllowDirectPlay": true,
+          "PlayerTokenAuthenticationEnabled": false,
+          "AllowedReferrers": [
+            "arabautomators.com"
+          ],
+          "BlockedReferrers": [],
+          "BlockNoneReferrer": true,
+          "PlayerVersion": 2,
+          "EncodingTier": 0,
+          "OutputCodecs": "x264",
+          "MonthlyChargesEnterpriseDrm": 0,
+          "DrmBasePriceOverride": 99,
+          "DrmCostPerLicenseOverride": null,
+          "FeatureFlags": null,
+          "PullZoneId": 6436753,
+          "StorageZoneId": 1795115,
+          "AppleFairPlayDrm": {
+            "Enabled": false,
+            "CertificateId": null,
+            "CertificateExpirationDate": null,
+            "Provider": null
+          },
+          "GoogleWidevineDrm": {
+            "Enabled": false,
+            "CertificateId": null,
+            "CertificateExpirationDate": null,
+            "Provider": null,
+            "SdOnlyForL3": false,
+            "MinClientSecurityLevel": null
+          }
+        }
+      },
+      {
+        "path": "/videolibrary?page=1&perPage=1000&includeAccessKey=false",
+        "http_status": 200,
+        "pagination": {
+          "CurrentPage": 1,
+          "TotalItems": 1,
+          "HasMoreItems": false
+        },
+        "libraries": [
+          {
+            "Id": 739542,
+            "Name": "arab-automators-course",
+            "DateCreated": "2026-08-29T15:17:34",
+            "DateModified": "2026-09-03T23:29:40",
+            "VideoCount": 3,
+            "EnableDRM": false,
+            "DrmVersion": 0,
+            "EnableMP4Fallback": true,
+            "KeepOriginalFiles": true,
+            "ExposeOriginals": false,
+            "AllowEarlyPlay": false,
+            "AllowDirectPlay": true,
+            "PlayerTokenAuthenticationEnabled": false,
+            "AllowedReferrers": [
+              "arabautomators.com"
+            ],
+            "BlockedReferrers": [],
+            "BlockNoneReferrer": true,
+            "PlayerVersion": 2,
+            "EncodingTier": 0,
+            "OutputCodecs": "x264",
+            "MonthlyChargesEnterpriseDrm": 0,
+            "DrmBasePriceOverride": 99,
+            "DrmCostPerLicenseOverride": null,
+            "FeatureFlags": null,
+            "PullZoneId": 6436753,
+            "StorageZoneId": 1795115,
+            "AppleFairPlayDrm": {
+              "Enabled": false,
+              "CertificateId": null,
+              "CertificateExpirationDate": null,
+              "Provider": null
+            },
+            "GoogleWidevineDrm": {
+              "Enabled": false,
+              "CertificateId": null,
+              "CertificateExpirationDate": null,
+              "Provider": null,
+              "SdOnlyForL3": false,
+              "MinClientSecurityLevel": null
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "account_billing_and_drm_statistics": [
+    {
+      "path": "/billing",
+      "http_status": 200,
+      "billing": {
+        "Balance": 0,
+        "AvailableBalance": 0,
+        "ThisMonthCharges": 0,
+        "BillingEnabled": true,
+        "MonthlyChargesDrm": 0,
+        "MonthlyDRMLicensesIssued": 0,
+        "DrmBaseMonthlyPrice": 99,
+        "DrmCostPerLicense": null
+      },
+      "billing_records": []
+    },
+    {
+      "path": "/videolibrary/739542/drm/statistics?dateFrom=2026-01-01&dateTo=2026-09-07",
+      "http_status": 200,
+      "statistics": {
+        "TotalLicensesIssued": 0
+      }
+    }
+  ],
+  "account_and_audit_history": {
+    "recorded_at": "2026-09-07T14:24:26.841492+00:00",
+    "http_status": 200,
+    "account": {
+      "DateJoined": "2026-08-29T15:16:26",
+      "TrialBalance": 50.0,
+      "BillingFreeUntilDate": "2026-09-12T15:16:26",
+      "FreeTrialExtendedDate": null,
+      "Suspended": false,
+      "PaymentsDisabled": false,
+      "AccountDisabled": false,
+      "BillingType": 0,
+      "IsReseller": false,
+      "FeatureFlags": [
+        "address-verification"
+      ]
+    },
+    "daily_audits": [
+      {
+        "path": "/user/audit/2026-08-28?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-08-29?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 4,
+        "logs": [
+          {
+            "Timestamp": "2026-08-29T18:28:10.059Z",
+            "Product": "CDN",
+            "ResourceType": "PullZone",
+            "ResourceId": "6436753",
+            "Action": "PullZone Allowed Referer Added",
+            "diff_field_names": [
+              "AllowedReferrers"
+            ],
+            "configuration_diff": {
+              "AllowedReferrers": "arabautomators.pixtaha.com"
+            }
+          },
+          {
+            "Timestamp": "2026-08-29T15:17:34.974Z",
+            "Product": "Stream",
+            "ResourceType": "VideoLibrary",
+            "ResourceId": "739542",
+            "Action": "VideoLibrary Created",
+            "diff_field_names": [
+              "Name",
+              "ReplicationRegions",
+              "PlayerVersion",
+              "EncodingTier",
+              "JitEncodingEnabled",
+              "OutputCodecs",
+              "EnabledResolutions",
+              "BlockNoneReferrer",
+              "EnableMP4Fallback",
+              "KeepOriginalFiles",
+              "AllowDirectPlay",
+              "EnableMultiAudioTrackSupport",
+              "EnableTranscribing",
+              "TranscribingCaptionLanguages",
+              "EnableTranscribingTitleGeneration",
+              "EnableTranscribingDescriptionGeneration",
+              "EnableTranscribingChaptersGeneration",
+              "EnableTranscribingMomentsGeneration",
+              "AllowEarlyPlay"
+            ],
+            "configuration_diff": {
+              "Name": "arab-automators-course",
+              "PlayerVersion": 2,
+              "EncodingTier": null,
+              "OutputCodecs": null,
+              "BlockNoneReferrer": null,
+              "EnableMP4Fallback": null,
+              "KeepOriginalFiles": null,
+              "AllowDirectPlay": null,
+              "AllowEarlyPlay": null
+            }
+          },
+          {
+            "Timestamp": "2026-08-29T15:17:34.974Z",
+            "Product": "CDN",
+            "ResourceType": "PullZone",
+            "ResourceId": "6436753",
+            "Action": "PullZone Created",
+            "diff_field_names": [
+              "Name",
+              "ReplicationRegions",
+              "PlayerVersion",
+              "EncodingTier",
+              "JitEncodingEnabled",
+              "OutputCodecs",
+              "EnabledResolutions",
+              "BlockNoneReferrer",
+              "EnableMP4Fallback",
+              "KeepOriginalFiles",
+              "AllowDirectPlay",
+              "EnableMultiAudioTrackSupport",
+              "EnableTranscribing",
+              "TranscribingCaptionLanguages",
+              "EnableTranscribingTitleGeneration",
+              "EnableTranscribingDescriptionGeneration",
+              "EnableTranscribingChaptersGeneration",
+              "EnableTranscribingMomentsGeneration",
+              "AllowEarlyPlay"
+            ],
+            "configuration_diff": {
+              "Name": "arab-automators-course",
+              "PlayerVersion": 2,
+              "EncodingTier": null,
+              "OutputCodecs": null,
+              "BlockNoneReferrer": null,
+              "EnableMP4Fallback": null,
+              "KeepOriginalFiles": null,
+              "AllowDirectPlay": null,
+              "AllowEarlyPlay": null
+            }
+          },
+          {
+            "Timestamp": "2026-08-29T15:17:34.974Z",
+            "Product": "CDN",
+            "ResourceType": "StorageZone",
+            "ResourceId": "1795115",
+            "Action": "StorageZone Created",
+            "diff_field_names": [
+              "Name",
+              "ReplicationRegions",
+              "PlayerVersion",
+              "EncodingTier",
+              "JitEncodingEnabled",
+              "OutputCodecs",
+              "EnabledResolutions",
+              "BlockNoneReferrer",
+              "EnableMP4Fallback",
+              "KeepOriginalFiles",
+              "AllowDirectPlay",
+              "EnableMultiAudioTrackSupport",
+              "EnableTranscribing",
+              "TranscribingCaptionLanguages",
+              "EnableTranscribingTitleGeneration",
+              "EnableTranscribingDescriptionGeneration",
+              "EnableTranscribingChaptersGeneration",
+              "EnableTranscribingMomentsGeneration",
+              "AllowEarlyPlay"
+            ],
+            "configuration_diff": {
+              "Name": "arab-automators-course",
+              "PlayerVersion": 2,
+              "EncodingTier": null,
+              "OutputCodecs": null,
+              "BlockNoneReferrer": null,
+              "EnableMP4Fallback": null,
+              "KeepOriginalFiles": null,
+              "AllowDirectPlay": null,
+              "AllowEarlyPlay": null
+            }
+          }
+        ]
+      },
+      {
+        "path": "/user/audit/2026-08-30?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-08-31?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-09-01?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-09-02?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-09-03?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 2,
+        "logs": [
+          {
+            "Timestamp": "2026-09-03T23:29:40.201Z",
+            "Product": "CDN",
+            "ResourceType": "PullZone",
+            "ResourceId": "6436753",
+            "Action": "PullZone Allowed Referer Added",
+            "diff_field_names": [
+              "AllowedReferrers"
+            ],
+            "configuration_diff": {
+              "AllowedReferrers": "arabautomators.com"
+            }
+          },
+          {
+            "Timestamp": "2026-09-03T23:29:26.186Z",
+            "Product": "CDN",
+            "ResourceType": "PullZone",
+            "ResourceId": "6436753",
+            "Action": "PullZone Allowed Referer Removed",
+            "diff_field_names": [
+              "AllowedReferrers"
+            ],
+            "configuration_diff": {
+              "AllowedReferrers": ""
+            }
+          }
+        ]
+      },
+      {
+        "path": "/user/audit/2026-09-04?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-09-05?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-09-06?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 0,
+        "logs": []
+      },
+      {
+        "path": "/user/audit/2026-09-07?Limit=1000",
+        "http_status": 200,
+        "has_more_data": false,
+        "log_count": 4,
+        "logs": [
+          {
+            "Timestamp": "2026-09-07T13:47:28.353Z",
+            "Product": "User",
+            "ResourceType": "User",
+            "Action": "Auto Recharge Enabled",
+            "configuration_diff": {}
+          },
+          {
+            "Timestamp": "2026-09-07T13:47:27.802Z",
+            "Product": "User",
+            "ResourceType": "User",
+            "Action": "User Payment Card Linked",
+            "configuration_diff": {}
+          },
+          {
+            "Timestamp": "2026-09-07T13:44:38.488Z",
+            "Product": "User",
+            "ResourceType": "User",
+            "Action": "User Details Updated",
+            "configuration_diff": {}
+          },
+          {
+            "Timestamp": "2026-09-07T13:44:31.647Z",
+            "Product": "User",
+            "ResourceType": "User",
+            "Action": "UserSettings Created",
+            "configuration_diff": {}
+          }
+        ]
+      }
+    ]
+  },
+  "enterprise_entitlement_assessment": {
+    "provisioned_enterprise_library_found": false,
+    "separate_account_wide_commercial_entitlement_boolean_exposed": false,
+    "configured_drm_certificate_found": false,
+    "expired_drm_certificate_found": false,
+    "supported_activation_path": "Bunny sales/support provisioning; current dashboard Basic-mode library shows Contact Sales",
+    "historical_account_identified": false
+  },
+  "player_inspection": {
+    "application_changed": false,
+    "iframe_host": "iframe.mediadelivery.net",
+    "encrypted_media_allowed": true,
+    "initial_observations_for_all_three_videos": {
+      "legacy_isEntDrm": false,
+      "legacy_isFairplay": false,
+      "current_drm_version": 0
+    }
+  },
+  "reprocessing": {
+    "performed": false,
+    "originals_retained_for_all_videos": true,
+    "dashboard_warns_reencode_and_repackage_cannot_be_canceled": true,
+    "user_requires_stop_before_irreversible_operation": true,
+    "candidate_reencode_endpoint": "POST https://video.bunnycdn.com/library/739542/videos/{videoId}/reencode",
+    "repackage_conversion_suitability_verified": false
+  },
+  "verification": {
+    "hls_master_playlists_checked": 3,
+    "hls_rendition_playlists_checked": 15,
+    "encrypted_rendition_playlists_found": 0,
+    "mp4_fallback_heads_checked": 12,
+    "mp4_fallback_http_200_count": 12,
+    "license_acquisition_tested": false,
+    "recorder_blackout_tested": false
+  }
+}

@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDeviceSession } from "@/lib/auth/device-session";
+import { withoutVideoFileUrl } from "@/lib/sessionResources";
 
 export interface CourseModuleRow {
   id: string;
@@ -18,6 +19,8 @@ export interface CourseSessionRow {
   description: string | null;
   live_date: string | null;
   main_video_bunny_id: string | null;
+  main_video_provider: "bunny" | "vdocipher" | null;
+  main_video_vdocipher_id: string | null;
   status: string;
   summary_ar: string | null;
   notes: string | null;
@@ -36,6 +39,8 @@ export interface SessionResourceRow {
   title: string;
   file_url: string | null;
   bunny_video_id: string | null;
+  video_provider: "bunny" | "vdocipher" | null;
+  vdocipher_video_id: string | null;
   order_index: number;
   file_size_bytes: number | null;
   page_count: number | null;
@@ -74,7 +79,7 @@ export async function getCourseSessionData(sessionId: string): Promise<CourseSes
     session,
     module: module ?? null,
     moduleSessions: moduleSessions ?? [],
-    resources: resources ?? [],
+    resources: (resources ?? []).map(withoutVideoFileUrl),
   };
 }
 

@@ -5,7 +5,7 @@ export function SessionVideoPlayer({ session }: { session: CourseSessionRow }) {
   return (
     <div className="rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
       {session.main_video_bunny_id ? (
-        <BunnyPlayer videoId={session.main_video_bunny_id} />
+        <BunnyPlayer sessionId={session.id} videoId={session.main_video_bunny_id} title={session.title} />
       ) : (
         <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-card border border-border-hairline bg-surface-ink bg-dots-ink text-center">
           <span className="font-mono text-[11px] tracking-widest text-aa-neutral-500 uppercase">

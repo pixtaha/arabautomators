@@ -1,4 +1,5 @@
 import "server-only";
+import { BUNNY_VIDEO_ID_RE } from "@/lib/bunny-playback";
 
 const BUNNY_API_BASE = "https://video.bunnycdn.com/library";
 
@@ -15,6 +16,7 @@ export interface BunnyVideoMetadata {
 }
 
 export async function getBunnyVideo(videoId: string): Promise<BunnyVideoMetadata | null> {
+  if (!BUNNY_VIDEO_ID_RE.test(videoId)) return null;
   const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID;
   const apiKey = process.env.BUNNY_STREAM_API_KEY;
 
@@ -25,6 +27,8 @@ export async function getBunnyVideo(videoId: string): Promise<BunnyVideoMetadata
   const response = await fetch(`${BUNNY_API_BASE}/${libraryId}/videos/${videoId}`, {
     headers: { AccessKey: apiKey },
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+    redirect: "error",
   });
 
   if (response.status === 404) {

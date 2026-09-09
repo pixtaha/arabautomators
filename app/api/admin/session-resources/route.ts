@@ -1,7 +1,12 @@
 import { requireAdmin } from "@/lib/adminAuth";
+import { verifyVideoLink } from "@/lib/admin-video-link";
+import { parseVideoLink, videoResourceFields } from "@/lib/video-provider";
 import {
   SESSION_RESOURCE_MAX_FILE_SIZE_BYTES,
   SESSION_RESOURCE_MAX_FILE_SIZE_LABEL,
+  isVideoResource,
+  isVideoFile,
+  withoutVideoFileUrl,
 } from "@/lib/sessionResources";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -27,12 +32,12 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("session_resources")
-    .select("id, type, title, file_url, bunny_video_id, order_index, file_size_bytes, page_count")
+    .select("id, type, title, file_url, bunny_video_id, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count")
     .eq("session_id", sessionId)
     .order("order_index");
 
   if (error) return Response.json({ error: "Could not load resources." }, { status: 500 });
-  return Response.json({ resources: data ?? [] });
+  return Response.json({ resources: (data ?? []).map(withoutVideoFileUrl) }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -55,6 +60,33 @@ export async function POST(request: Request) {
   }
   if (typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "Title is required." }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  if (isVideoResource(type)) {
+    const link = parseVideoLink({
+      videoProvider: formData.get("videoProvider") ?? undefined,
+      bunnyVideoId: formData.get("bunnyVideoId"),
+      vdocipherVideoId: formData.get("vdocipherVideoId"),
+    });
+    if (link.error || !link.source || file instanceof File) {
+      return Response.json({ error: link.error ?? "Link a processed video using its provider Video ID." }, { status: 400 });
+    }
+    const { data: session, error: sessionError } = await supabase.from("sessions").select("id").eq("id", sessionId).maybeSingle();
+    if (sessionError || !session) {
+      return Response.json({ error: "Session not found." }, { status: 404 });
+    }
+    const verification = await verifyVideoLink(link.source);
+    if (verification) return Response.json({ error: verification.error }, { status: verification.status });
+    const { data: last, error: orderError } = await supabase.from("session_resources")
+      .select("order_index").eq("session_id", sessionId).order("order_index", { ascending: false }).limit(1);
+    if (orderError) return Response.json({ error: "Could not save resource." }, { status: 500 });
+    const { data: resource, error } = await supabase.from("session_resources").insert({
+      session_id: sessionId, type, title: title.trim(), ...videoResourceFields(link.source),
+      file_url: null, order_index: (last?.[0]?.order_index ?? -1) + 1,
+    }).select("id, type, title, file_url, bunny_video_id, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count").single();
+    if (error || !resource) return Response.json({ error: "Could not save resource." }, { status: 500 });
+    return Response.json({ resource: withoutVideoFileUrl(resource) });
   }
 
   let pageCount: number | null = null;
@@ -81,6 +113,9 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || file.size === 0) {
       return Response.json({ error: "A file is required for this resource type." }, { status: 400 });
     }
+    if (isVideoFile(file)) {
+      return Response.json({ error: "Course videos must use a Bunny Stream video resource." }, { status: 400 });
+    }
     if (file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
       return Response.json(
         { error: `File must be ${SESSION_RESOURCE_MAX_FILE_SIZE_LABEL} or smaller.` },
@@ -92,7 +127,6 @@ export async function POST(request: Request) {
     contentType = file.type || "application/octet-stream";
   }
 
-  const supabase = createAdminClient();
   const path = `${sessionId}/${Date.now()}-${filename}`;
   const buffer = Buffer.from(await uploadBlob.arrayBuffer());
 

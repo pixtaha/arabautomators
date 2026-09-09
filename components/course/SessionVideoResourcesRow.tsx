@@ -17,11 +17,13 @@ export function SessionVideoResourcesRow({ resources }: { resources: SessionReso
             title={v.title}
             subtitle={"credential" in v ? "Credential setup" : null}
             player={
-              v.bunny_video_id ? (
-                <BunnyPlayer videoId={v.bunny_video_id} />
-              ) : v.file_url ? (
-                <video controls src={v.file_url} className="w-full rounded-lg" />
-              ) : null
+              v.bunny_video_id && v.session_id ? (
+                <BunnyPlayer sessionId={v.session_id} videoId={v.bunny_video_id} title={v.title} />
+              ) : (
+                <div className="flex aspect-video items-center justify-center rounded-lg bg-surface-ink p-4 text-center text-sm text-white">
+                  This video is temporarily unavailable.
+                </div>
+              )
             }
           />
         </div>

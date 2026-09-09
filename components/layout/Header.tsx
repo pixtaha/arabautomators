@@ -20,16 +20,20 @@ export function Header() {
   const showDashboardLinks = Boolean(user) && inDashboardArea;
 
   return (
-    <header className="sticky top-0 z-20 border-b border-border-hairline bg-surface-card">
-      <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3.5 sm:px-6">
+    <header className="sticky top-0 z-20 border-b border-border-hairline bg-surface-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <div className="mx-auto flex min-h-14 max-w-[1180px] items-center justify-between gap-4 px-4 py-2 sm:px-6 sm:py-3.5">
         <Link href="/" aria-label="Arab Automators home" className="transition-opacity duration-150 ease-out hover:opacity-80">
           <Wordmark />
         </Link>
-        <nav className="flex flex-wrap items-center gap-4 sm:gap-5">
+        <nav className="hidden items-center gap-4 sm:flex sm:gap-5">
           {showDashboardLinks && (
-            <ButtonLink href="/dashboard/tasks" variant="ghost" size="md">
+            <span
+              aria-disabled="true"
+              title="My Tasks is currently unavailable"
+              className="inline-flex h-10 select-none items-center justify-center gap-2 rounded-control px-5 text-sm font-semibold font-body text-text-body opacity-50 cursor-not-allowed"
+            >
               My Tasks
-            </ButtonLink>
+            </span>
           )}
           <ButtonLink href="/dashboard/tasks-leaderboard" variant="ghost" size="md">
             Task Leaderboard
@@ -48,6 +52,21 @@ export function Header() {
           <ButtonLink href="/help" variant="ghost" size="md">
             Help
           </ButtonLink>
+          <AuthStatus />
+        </nav>
+        <nav aria-label="Mobile navigation" className="flex items-center gap-1.5 sm:hidden">
+          <Link href="/dashboard/tasks-leaderboard" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
+            Leaderboard
+          </Link>
+          {showDashboardLinks && (
+            <span
+              aria-disabled="true"
+              title="Tasks is currently unavailable"
+              className="select-none rounded-full px-3 py-2 text-xs font-semibold text-text-strong opacity-50 cursor-not-allowed"
+            >
+              Tasks
+            </span>
+          )}
           <AuthStatus />
         </nav>
       </div>
