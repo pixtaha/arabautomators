@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ButtonLink } from "@/components/ui/ButtonLink";
@@ -14,10 +15,33 @@ export function Header() {
   const { quiz } = useLiveQuiz();
   const { user } = useSupabaseUser();
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const inDashboardArea = DASHBOARD_AREA_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
   const showDashboardLinks = Boolean(user) && inDashboardArea;
+
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/auth/is-admin", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+      .then((data) => {
+        if (!cancelled) setIsAdmin(Boolean(data.isAdmin));
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const showMyTasks = showDashboardLinks && isAdmin;
 
   return (
     <header className="sticky top-0 z-20 border-b border-border-hairline bg-surface-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -26,14 +50,10 @@ export function Header() {
           <Wordmark />
         </Link>
         <nav className="hidden items-center gap-4 sm:flex sm:gap-5">
-          {showDashboardLinks && (
-            <span
-              aria-disabled="true"
-              title="My Tasks is currently unavailable"
-              className="inline-flex h-10 select-none items-center justify-center gap-2 rounded-control px-5 text-sm font-semibold font-body text-text-body opacity-50 cursor-not-allowed"
-            >
+          {showMyTasks && (
+            <ButtonLink href="/dashboard/tasks" variant="ghost" size="md">
               My Tasks
-            </span>
+            </ButtonLink>
           )}
           <ButtonLink href="/dashboard/tasks-leaderboard" variant="ghost" size="md">
             Task Leaderboard
@@ -58,14 +78,10 @@ export function Header() {
           <Link href="/dashboard/tasks-leaderboard" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
             Leaderboard
           </Link>
-          {showDashboardLinks && (
-            <span
-              aria-disabled="true"
-              title="Tasks is currently unavailable"
-              className="select-none rounded-full px-3 py-2 text-xs font-semibold text-text-strong opacity-50 cursor-not-allowed"
-            >
+          {showMyTasks && (
+            <Link href="/dashboard/tasks" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
               Tasks
-            </span>
+            </Link>
           )}
           <AuthStatus />
         </nav>
