@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { VideoProviderFields, videoLinkDraft } from "@/components/admin/VideoProviderFields";
 import { SessionVideoPartsEditor } from "@/components/admin/SessionVideoPartsEditor";
+import { CreateSessionForm, type CreatedSession, type ModuleOption } from "@/components/admin/CreateSessionForm";
 import { parseVideoLink, resolveVideoSource, type VideoProvider } from "@/lib/video-provider";
 import {
   SESSION_RESOURCE_MAX_FILE_SIZE_BYTES,
@@ -62,6 +63,16 @@ interface PushWorkflowResponse {
   error?: string;
 }
 
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3" role="separator" aria-label={label}>
+      <div className="h-px flex-1 bg-border-hairline" />
+      <span className="flex-none font-mono text-[11px] tracking-widest text-text-faint uppercase">{label}</span>
+      <div className="h-px flex-1 bg-border-hairline" />
+    </div>
+  );
+}
+
 function uploadSessionResource(
   formData: FormData,
   onProgress: (percent: number) => void,
@@ -96,6 +107,8 @@ export function SessionResourcesAdminClient() {
   const [sessions, setSessions] = useState<SessionOption[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState("");
+  const [modules, setModules] = useState<ModuleOption[]>([]);
+  const [showCreateSession, setShowCreateSession] = useState(false);
 
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
@@ -127,10 +140,29 @@ export function SessionResourcesAdminClient() {
       .then((res) => res.json())
       .then((data) => {
         setSessions(data.sessions ?? []);
+        setModules(data.modules ?? []);
         if (data.sessions?.length) setSelectedSessionId((prev) => prev || data.sessions[0].id);
       })
       .finally(() => setSessionsLoading(false));
   }, []);
+
+  function handleSessionCreated(session: CreatedSession) {
+    const mod = modules.find((m) => m.id === session.module_id);
+    const option: SessionOption = {
+      id: session.id,
+      title: session.title,
+      orderIndex: session.order_index,
+      moduleOrderIndex: mod?.orderIndex ?? null,
+    };
+    setSessions((prev) =>
+      [...prev, option].sort(
+        (a, b) => (a.moduleOrderIndex ?? 0) - (b.moduleOrderIndex ?? 0) || a.orderIndex - b.orderIndex,
+      ),
+    );
+    setResourcesLoading(true);
+    setSelectedSessionId(option.id);
+    setShowCreateSession(false);
+  }
 
   const loadResources = useCallback((sessionId: string) => {
     if (!sessionId) return;
@@ -301,32 +333,51 @@ export function SessionResourcesAdminClient() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-2 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div>
-              <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Editing</span>
-              <h2 id="session-picker-heading" className="font-display text-lg font-bold text-text-strong">Select a session</h2>
+          <div className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div>
+                <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Editing</span>
+                <h2 id="session-picker-heading" className="font-display text-lg font-bold text-text-strong">Select a session</h2>
+              </div>
+              <select
+                id="session"
+                aria-labelledby="session-picker-heading"
+                value={selectedSessionId}
+                onChange={(e) => {
+                  setResourcesLoading(true);
+                  setSelectedSessionId(e.target.value);
+                  setLinkingId(null);
+                }}
+                disabled={submitting || sessionsLoading || sessions.length === 0}
+                className="h-11 min-w-0 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25 sm:w-[380px]"
+              >
+                {sessions.length === 0 && <option>No sessions found</option>}
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.moduleOrderIndex !== null ? `Module ${s.moduleOrderIndex} · ` : ""}
+                    Session {s.orderIndex}: {s.title}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              id="session"
-              aria-labelledby="session-picker-heading"
-              value={selectedSessionId}
-              onChange={(e) => {
-                setResourcesLoading(true);
-                setSelectedSessionId(e.target.value);
-                setLinkingId(null);
-              }}
-              disabled={submitting || sessionsLoading || sessions.length === 0}
-              className="h-11 min-w-0 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25 sm:w-[380px]"
-            >
-              {sessions.length === 0 && <option>No sessions found</option>}
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.moduleOrderIndex !== null ? `Module ${s.moduleOrderIndex} · ` : ""}
-                  Session {s.orderIndex}: {s.title}
-                </option>
-              ))}
-            </select>
+            <div className="border-t border-border-hairline pt-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateSession((v) => !v)}
+                className="cursor-pointer text-xs font-semibold text-text-accent underline"
+              >
+                {showCreateSession ? "Cancel" : "+ Create new session"}
+              </button>
+            </div>
           </div>
+
+          {showCreateSession && (
+            <CreateSessionForm
+              modules={modules}
+              onCreated={handleSessionCreated}
+              onCancel={() => setShowCreateSession(false)}
+            />
+          )}
 
           <form
             onSubmit={handleSubmit}
@@ -455,7 +506,11 @@ export function SessionResourcesAdminClient() {
             </Button>
           </form>
 
+          <SectionDivider label="This session's main lecture video" />
+
           {selectedSessionId && <SessionVideoPartsEditor key={selectedSessionId} sessionId={selectedSessionId} />}
+
+          <SectionDivider label="This session's resources" />
 
           <div className="flex flex-col gap-3">
             <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
