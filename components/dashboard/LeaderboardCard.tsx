@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { TimeRangeFilter } from "@/components/dashboard/TimeRangeFilter";
 import { createClient } from "@/lib/supabase/client";
 import type { PointsRange } from "@/lib/time";
 
@@ -12,13 +13,6 @@ interface BoardRow {
   points: number;
   isMe: boolean;
 }
-
-const RANGE_OPTIONS: { key: PointsRange; label: string }[] = [
-  { key: "day", label: "Today" },
-  { key: "week", label: "This week" },
-  { key: "month", label: "This month" },
-  { key: "all", label: "All time" },
-];
 
 const RANK_STYLE: Record<number, { ring: string; medal: string }> = {
   1: { ring: "#F8C800", medal: "🥇" },
@@ -79,26 +73,14 @@ export function LeaderboardCard() {
     <div className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Leaderboard</span>
-        <div className="flex flex-wrap items-center gap-1">
-          {RANGE_OPTIONS.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => {
-                setBoard(null);
-                setShowAll(false);
-                setRange(option.key);
-              }}
-              className={`rounded-full px-2 py-1 font-mono text-[10px] tracking-widest uppercase transition-colors ${
-                range === option.key
-                  ? "bg-surface-brand text-text-inverse"
-                  : "text-text-muted hover:bg-surface-sunken"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <TimeRangeFilter
+          value={range}
+          onChange={(key) => {
+            setBoard(null);
+            setShowAll(false);
+            setRange(key);
+          }}
+        />
       </div>
 
       {board === null ? (

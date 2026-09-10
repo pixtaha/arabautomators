@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Avatar } from "@/components/ui/Avatar";
+import { TimeRangeFilter } from "@/components/dashboard/TimeRangeFilter";
 import { createClient } from "@/lib/supabase/client";
 import type { PointsRange } from "@/lib/time";
 
@@ -33,13 +34,6 @@ const TAB_OPTIONS: { key: LeaderboardTab; label: string; hint: string; endpoint:
     endpoint: "/api/tasks/leaderboard",
     channel: "leaderboard:tasks",
   },
-];
-
-const RANGE_OPTIONS: { key: PointsRange; label: string }[] = [
-  { key: "day", label: "Today" },
-  { key: "week", label: "This week" },
-  { key: "month", label: "This month" },
-  { key: "all", label: "All time" },
 ];
 
 const RANK_SKIN: Record<number, { bg: string; border: string; fg: string; medal: string }> = {
@@ -153,25 +147,13 @@ export function TasksLeaderboardClient() {
 
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Time range</span>
-              <div className="flex flex-wrap items-center gap-0.5 rounded-full bg-surface-sunken p-1">
-                {RANGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => {
-                      setBoard(null);
-                      setRange(option.key);
-                    }}
-                    className={`rounded-full px-3 py-1.5 font-mono text-[10px] tracking-wide uppercase transition-colors ${
-                      range === option.key
-                        ? "bg-surface-card text-text-strong shadow-card"
-                        : "text-text-muted hover:text-text-body"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <TimeRangeFilter
+                value={range}
+                onChange={(key) => {
+                  setBoard(null);
+                  setRange(key);
+                }}
+              />
             </div>
 
             <div className="flex items-center gap-3 border-t-2 border-surface-ink border-b border-border-hairline px-4 py-2">
