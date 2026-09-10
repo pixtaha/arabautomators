@@ -8,7 +8,7 @@ export async function GET() {
   const supabase = createAdminClient();
 
   const [{ data: sessions, error: sessionsError }, { data: modules }] = await Promise.all([
-    supabase.from("sessions").select("id, title, order_index, module_id, main_video_provider, main_video_vdocipher_id").order("order_index"),
+    supabase.from("sessions").select("id, title, order_index, module_id").order("order_index"),
     supabase.from("modules").select("id, order_index"),
   ]);
 
@@ -24,8 +24,6 @@ export async function GET() {
       title: s.title as string,
       orderIndex: s.order_index as number,
       moduleOrderIndex: s.module_id ? (moduleOrderById.get(s.module_id) ?? null) : null,
-      main_video_provider: s.main_video_provider,
-      main_video_vdocipher_id: s.main_video_vdocipher_id,
     }))
     .sort((a, b) => (a.moduleOrderIndex ?? 0) - (b.moduleOrderIndex ?? 0) || a.orderIndex - b.orderIndex);
 

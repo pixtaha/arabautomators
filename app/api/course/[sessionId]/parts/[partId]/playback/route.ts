@@ -22,20 +22,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       return Response.json({ error: "Sign in again to watch this video." }, { status: 401, headers });
     }
     const { sessionId, partId } = await params;
-    if (!UUID_RE.test(sessionId) || (partId !== "main" && !UUID_RE.test(partId))) {
+    if (!UUID_RE.test(sessionId) || !UUID_RE.test(partId)) {
       return Response.json({ error: "Video not found." }, { status: 404, headers });
     }
     const admin = createAdminClient();
-    const [{ data: session, error: sessionError }, { data: resources, error: resourceError }, { data: profile }] = await Promise.all([
-      admin.from("sessions").select("id,title,main_video_provider,main_video_vdocipher_id").eq("id", sessionId).maybeSingle(),
+    const [{ data: session, error: sessionError }, { data: lectureParts, error: partsError }, { data: resources, error: resourceError }, { data: profile }] = await Promise.all([
+      admin.from("sessions").select("id").eq("id", sessionId).maybeSingle(),
+      admin.from("session_video_parts").select("id,session_id,order_index,title,vdocipher_video_id").eq("session_id", sessionId),
       admin.from("session_resources").select("id,session_id,title,type,order_index,video_provider,vdocipher_video_id")
         .eq("session_id", sessionId).in("type", ["video", "credential_video"]),
       admin.from("profiles").select("username").eq("id", activeSession.user.id).maybeSingle(),
     ]);
-    if (sessionError || resourceError || !session) {
+    if (sessionError || partsError || resourceError || !session) {
       return Response.json({ error: "Video not found." }, { status: 404, headers });
     }
-    const part = getSessionVideoParts(session, resources ?? [])?.find((part) => part.id === partId);
+    const part = getSessionVideoParts(sessionId, lectureParts ?? [], resources ?? []).find((part) => part.id === partId);
     if (part?.source?.provider !== "vdocipher") {
       return Response.json({ error: "Video not found." }, { status: 404, headers });
     }

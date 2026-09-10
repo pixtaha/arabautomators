@@ -51,8 +51,8 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
   const data = await getCourseSessionData(sessionId);
   if (!data) notFound();
 
-  const { session, module, moduleSessions, resources } = data;
-  const videoParts = getSessionVideoParts(session, resources);
+  const { session, module, moduleSessions, resources, lectureParts } = data;
+  const videoParts = getSessionVideoParts(session.id, lectureParts, resources);
   const { prev, next } = getAdjacentSessions(moduleSessions, session.id);
 
   return (

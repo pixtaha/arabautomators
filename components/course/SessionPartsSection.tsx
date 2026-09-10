@@ -101,10 +101,6 @@ export function SessionPartsSection({
           );
         })}
       </div>
-
-      <div className="border-t border-border-hairline pt-4 text-xs text-text-muted">
-        Office hours Wednesday, 20:00 Cairo.
-      </div>
     </div>
   );
 }
