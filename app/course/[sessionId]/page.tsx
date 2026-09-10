@@ -5,7 +5,8 @@ import { getAdjacentSessions, getCourseSessionData } from "@/lib/data/courseSess
 import { Header } from "@/components/layout/Header";
 import { CourseSessionShell } from "@/components/course/CourseSessionShell";
 import { SessionHeader } from "@/components/course/SessionHeader";
-import { SessionVideoPlaylist } from "@/components/course/SessionVideoPlaylist";
+import { SessionVideoStage } from "@/components/course/SessionVideoStage";
+import { SessionVideoProvider } from "@/components/course/SessionVideoContext";
 import { getSessionVideoParts } from "@/lib/session-video-parts";
 import { SessionNotesCard } from "@/components/course/SessionNotesCard";
 import { SessionPartsSection } from "@/components/course/SessionPartsSection";
@@ -59,71 +60,74 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
       <Header />
       <div className="relative min-h-screen overflow-hidden bg-surface-page">
         <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
-        <CourseSessionShell
-          resources={
-            <>
-              <SessionResourcesPanel resources={resources} />
-              {session.warning_title && (
-                <SessionWarningCallout title={session.warning_title} body={session.warning_body} />
-              )}
-            </>
-          }
-        >
-          <SessionHeader session={session} />
-          <SessionVideoPlaylist sessionId={session.id} parts={videoParts} />
-          <SessionNotesCard session={session} />
+        <SessionVideoProvider parts={videoParts}>
+          <CourseSessionShell
+            resources={
+              <>
+                <SessionResourcesPanel resources={resources} />
+                {session.warning_title && (
+                  <SessionWarningCallout title={session.warning_title} body={session.warning_body} />
+                )}
+              </>
+            }
+          >
+            <SessionHeader session={session} />
+            <SessionVideoStage sessionId={session.id} />
 
-          {(prev || next) && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {prev ? (
-                <Link
-                  href={`/course/${prev.id}`}
-                  className="flex items-center gap-3.5 rounded-card border border-border-hairline bg-surface-card p-4.5 shadow-card transition-[transform,box-shadow] duration-150 ease-[var(--ease-smooth)] hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-surface-sunken text-text-strong">
-                    <ArrowIcon direction="left" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                      Previous session
+            {(prev || next) && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {prev ? (
+                  <Link
+                    href={`/course/${prev.id}`}
+                    className="flex items-center gap-3.5 rounded-card border border-border-hairline bg-surface-card p-4.5 shadow-card transition-[transform,box-shadow] duration-150 ease-[var(--ease-smooth)] hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-surface-sunken text-text-strong">
+                      <ArrowIcon direction="left" />
                     </span>
-                    <span className="mt-1 block truncate font-display text-[15px] font-bold tracking-tight text-text-strong">
-                      {prev.title}
+                    <span className="min-w-0">
+                      <span className="block font-mono text-[11px] tracking-widest text-text-muted uppercase">
+                        Previous session
+                      </span>
+                      <span className="mt-1 block truncate font-display text-[15px] font-bold tracking-tight text-text-strong">
+                        {prev.title}
+                      </span>
                     </span>
-                  </span>
-                </Link>
-              ) : (
-                <div />
-              )}
-              {next ? (
-                <Link
-                  href={`/course/${next.id}`}
-                  className="flex items-center justify-end gap-3.5 rounded-card border border-border-hairline bg-surface-card p-4.5 text-right shadow-card transition-[transform,box-shadow] duration-150 ease-[var(--ease-smooth)] hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                      Next session
+                  </Link>
+                ) : (
+                  <div />
+                )}
+                {next ? (
+                  <Link
+                    href={`/course/${next.id}`}
+                    className="flex items-center justify-end gap-3.5 rounded-card border border-border-hairline bg-surface-card p-4.5 text-right shadow-card transition-[transform,box-shadow] duration-150 ease-[var(--ease-smooth)] hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-mono text-[11px] tracking-widest text-text-muted uppercase">
+                        Next session
+                      </span>
+                      <span className="mt-1 block truncate font-display text-[15px] font-bold tracking-tight text-text-strong">
+                        {next.title}
+                      </span>
                     </span>
-                    <span className="mt-1 block truncate font-display text-[15px] font-bold tracking-tight text-text-strong">
-                      {next.title}
+                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-surface-ink text-white">
+                      <ArrowIcon direction="right" />
                     </span>
-                  </span>
-                  <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-surface-ink text-white">
-                    <ArrowIcon direction="right" />
-                  </span>
-                </Link>
-              ) : (
-                <div />
-              )}
-            </div>
-          )}
+                  </Link>
+                ) : (
+                  <div />
+                )}
+              </div>
+            )}
 
-          <SessionPartsSection
-            moduleTitle={module?.title ?? "Module"}
-            sessions={moduleSessions}
-            currentSessionId={session.id}
-          />
-        </CourseSessionShell>
+            <SessionNotesCard session={session} />
+
+            <SessionPartsSection
+              moduleTitle={module?.title ?? "Module"}
+              sessions={moduleSessions}
+              currentSessionId={session.id}
+            />
+          </CourseSessionShell>
+        </SessionVideoProvider>
       </div>
     </div>
   );
