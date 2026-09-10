@@ -22,9 +22,11 @@ const DEMO_PROGRESS_PERCENT = 15;
 export function DashboardClient({
   modules,
   firstSessionId,
+  isAdmin,
 }: {
   modules: ModuleWithSession[];
   firstSessionId: string | null;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
@@ -78,7 +80,7 @@ export function DashboardClient({
             <div className="flex flex-col gap-6">
               <ProgressCard percent={DEMO_PROGRESS_PERCENT} />
 
-              <CourseModulesCard modules={modules} />
+              <CourseModulesCard modules={modules} isAdmin={isAdmin} />
 
               {COURSE_ACCESS_ENABLED && firstSessionId ? (
                 <Link

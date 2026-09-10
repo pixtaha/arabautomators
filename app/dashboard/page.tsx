@@ -1,6 +1,7 @@
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { getModulesWithSessions } from "@/lib/data/modules";
 import { requireDeviceSession } from "@/lib/auth/device-session";
+import { requireAdmin } from "@/lib/adminAuth";
 
 // getModulesWithSessions reads modules/sessions with the service-role key,
 // which is only available at container runtime (docker-compose), not at
@@ -11,8 +12,8 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   await requireDeviceSession();
-  const modules = await getModulesWithSessions();
+  const [modules, adminUser] = await Promise.all([getModulesWithSessions(), requireAdmin()]);
   const firstSessionId = modules.find((module) => module.sessionId)?.sessionId ?? null;
 
-  return <DashboardClient modules={modules} firstSessionId={firstSessionId} />;
+  return <DashboardClient modules={modules} firstSessionId={firstSessionId} isAdmin={Boolean(adminUser)} />;
 }

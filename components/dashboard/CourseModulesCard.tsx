@@ -17,7 +17,7 @@ function formatAvailableDate(iso: string | null) {
   return `Available ${new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
-export function CourseModulesCard({ modules }: { modules: ModuleWithSession[] }) {
+export function CourseModulesCard({ modules, isAdmin = false }: { modules: ModuleWithSession[]; isAdmin?: boolean }) {
   return (
     <div
       id="continue-course"
@@ -28,13 +28,15 @@ export function CourseModulesCard({ modules }: { modules: ModuleWithSession[] })
           Continue where you left off
         </span>
         <span className="font-mono text-[10px] tracking-widest text-text-muted uppercase">
-          {UNLOCKED_COUNT} of {modules.length} available
+          {isAdmin ? `${modules.length} of ${modules.length} available` : `${UNLOCKED_COUNT} of ${modules.length} available`}
         </span>
       </div>
 
       <div className="flex max-h-[320px] flex-col gap-1.5 overflow-y-auto pr-1">
         {modules.map((module, index) => {
-          const isUnlocked = index < UNLOCKED_COUNT;
+          const studentUnlocked = index < UNLOCKED_COUNT;
+          const isUnlocked = isAdmin || studentUnlocked;
+          const showAdminBadge = isAdmin && !studentUnlocked;
           const no = String(module.order_index).padStart(2, "0");
 
           const content = (
@@ -53,6 +55,11 @@ export function CourseModulesCard({ modules }: { modules: ModuleWithSession[] })
                   {module.title}
                 </span>
                 {!isUnlocked && <LockIcon className="h-3.5 w-3.5 flex-none text-text-faint" />}
+                {showAdminBadge && (
+                  <span className="flex-none rounded-full bg-surface-brand-soft px-2 py-0.5 font-mono text-[9px] tracking-widest text-text-accent uppercase">
+                    Admin access
+                  </span>
+                )}
               </div>
               <span className="font-mono text-[10px] tracking-widest text-text-muted uppercase">
                 {formatAvailableDate(module.available_date)}
@@ -60,7 +67,7 @@ export function CourseModulesCard({ modules }: { modules: ModuleWithSession[] })
             </>
           );
 
-          if (module.sessionId) {
+          if (module.sessionId && isUnlocked) {
             return (
               <Link
                 key={module.id}
@@ -88,7 +95,9 @@ export function CourseModulesCard({ modules }: { modules: ModuleWithSession[] })
       </div>
 
       <p className="text-xs text-text-muted">
-        Sections unlock as sessions go live — locked ones aren&apos;t clickable yet.
+        {isAdmin
+          ? "Admin view — all sections are accessible regardless of unlock status."
+          : "Sections unlock as sessions go live — locked ones aren't clickable yet."}
       </p>
     </div>
   );
