@@ -6,7 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { VideoProviderFields, videoLinkDraft } from "@/components/admin/VideoProviderFields";
-import { SessionMainVideoEditor, type MainVideoSession } from "@/components/admin/SessionMainVideoEditor";
+import { SessionVideoPartsEditor } from "@/components/admin/SessionVideoPartsEditor";
 import { parseVideoLink, resolveVideoSource, type VideoProvider } from "@/lib/video-provider";
 import {
   SESSION_RESOURCE_MAX_FILE_SIZE_BYTES,
@@ -25,7 +25,8 @@ const RESOURCE_TYPES = [
 
 type ResourceType = (typeof RESOURCE_TYPES)[number]["value"];
 
-interface SessionOption extends MainVideoSession {
+interface SessionOption {
+  id: string;
   title: string;
   orderIndex: number;
   moduleOrderIndex: number | null;
@@ -447,10 +448,7 @@ export function SessionResourcesAdminClient() {
             </Button>
           </form>
 
-          {sessions.filter((session) => session.id === selectedSessionId).map((session) => (
-            <SessionMainVideoEditor key={session.id} session={session}
-              onSaved={(updated) => setSessions((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item))} />
-          ))}
+          {selectedSessionId && <SessionVideoPartsEditor key={selectedSessionId} sessionId={selectedSessionId} />}
 
           <div className="flex flex-col gap-3">
             <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">

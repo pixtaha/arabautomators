@@ -12,6 +12,7 @@ import { SessionNotesCard } from "@/components/course/SessionNotesCard";
 import { SessionPartsSection } from "@/components/course/SessionPartsSection";
 import { SessionResourcesPanel } from "@/components/course/SessionResourcesPanel";
 import { SessionWarningCallout } from "@/components/course/SessionWarningCallout";
+import { ArrowIcon } from "@/components/course/ArrowIcon";
 
 export async function generateMetadata(props: PageProps<"/course/[sessionId]">) {
   const supabase = await createClient();
@@ -23,20 +24,6 @@ export async function generateMetadata(props: PageProps<"/course/[sessionId]">) 
   const { sessionId } = await props.params;
   const data = await getCourseSessionData(sessionId);
   return { title: data ? `${data.session.title} — Arab Automators` : "Session — Arab Automators" };
-}
-
-function ArrowIcon({ direction }: { direction: "left" | "right" }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className="h-[17px] w-[17px]" aria-hidden="true">
-      <path
-        d={direction === "left" ? "M10 3.5L5 8l5 4.5" : "M6 3.5L11 8l-5 4.5"}
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 export default async function CourseSessionPage(props: PageProps<"/course/[sessionId]">) {
@@ -53,6 +40,7 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
 
   const { session, module, moduleSessions, resources, lectureParts } = data;
   const videoParts = getSessionVideoParts(session.id, lectureParts, resources);
+  const lecturePartIds = lectureParts.map((part) => part.id);
   const { prev, next } = getAdjacentSessions(moduleSessions, session.id);
 
   return (
@@ -60,7 +48,7 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
       <Header />
       <div className="relative min-h-screen overflow-hidden bg-surface-page">
         <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
-        <SessionVideoProvider parts={videoParts}>
+        <SessionVideoProvider parts={videoParts} lecturePartIds={lecturePartIds}>
           <CourseSessionShell
             resources={
               <>

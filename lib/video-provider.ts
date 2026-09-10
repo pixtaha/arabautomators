@@ -27,7 +27,3 @@ export function resolveVideoSource(
 export function videoResourceFields(source: VideoSource) {
   return { video_provider: source.provider, vdocipher_video_id: source.videoId };
 }
-
-export function mainVideoFields(source: VideoSource) {
-  return { main_video_provider: source.provider, main_video_vdocipher_id: source.videoId };
-}
