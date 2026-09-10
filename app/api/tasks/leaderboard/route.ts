@@ -22,6 +22,11 @@ export async function GET(request: Request) {
   const start = getRangeStart(range);
 
   const supabase = createAdminClient();
+
+  // Team members (admins) shouldn't appear on the student-facing leaderboard.
+  const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin");
+  const adminIds = new Set((admins ?? []).map((a) => a.id));
+
   let query = supabase.from("points_ledger").select("student_id").eq("source_type", "task");
   if (start) query = query.gte("created_at", start.toISOString());
 
@@ -30,6 +35,7 @@ export async function GET(request: Request) {
 
   const totals = new Map<string, number>();
   for (const row of rows ?? []) {
+    if (adminIds.has(row.student_id)) continue;
     totals.set(row.student_id, (totals.get(row.student_id) ?? 0) + 1);
   }
 

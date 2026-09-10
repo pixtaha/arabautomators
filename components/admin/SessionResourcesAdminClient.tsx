@@ -297,37 +297,44 @@ export function SessionResourcesAdminClient() {
               Session resources
             </h1>
             <p className="max-w-[60ch] text-sm leading-relaxed text-text-muted">
-              Upload course materials for a session.
+              Manage a session&apos;s resources and lecture video parts.
             </p>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div>
+              <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Editing</span>
+              <h2 id="session-picker-heading" className="font-display text-lg font-bold text-text-strong">Select a session</h2>
+            </div>
+            <select
+              id="session"
+              aria-labelledby="session-picker-heading"
+              value={selectedSessionId}
+              onChange={(e) => {
+                setResourcesLoading(true);
+                setSelectedSessionId(e.target.value);
+                setLinkingId(null);
+              }}
+              disabled={submitting || sessionsLoading || sessions.length === 0}
+              className="h-11 min-w-0 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25 sm:w-[380px]"
+            >
+              {sessions.length === 0 && <option>No sessions found</option>}
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.moduleOrderIndex !== null ? `Module ${s.moduleOrderIndex} · ` : ""}
+                  Session {s.orderIndex}: {s.title}
+                </option>
+              ))}
+            </select>
           </div>
 
           <form
             onSubmit={handleSubmit}
             className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card"
           >
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="session" className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                Session
-              </label>
-              <select
-                id="session"
-                value={selectedSessionId}
-                onChange={(e) => {
-                  setResourcesLoading(true);
-                  setSelectedSessionId(e.target.value);
-                  setLinkingId(null);
-                }}
-                disabled={submitting || sessionsLoading || sessions.length === 0}
-                className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 text-sm text-text-strong focus:border-surface-brand focus:outline-none focus:ring-2 focus:ring-surface-brand/25"
-              >
-                {sessions.length === 0 && <option>No sessions found</option>}
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.moduleOrderIndex !== null ? `Module ${s.moduleOrderIndex} · ` : ""}
-                    Session {s.orderIndex}: {s.title}
-                  </option>
-                ))}
-              </select>
+            <div>
+              <h2 className="font-display text-lg font-bold text-text-strong">Add a resource</h2>
+              <p className="mt-1 text-sm text-text-muted">Upload or link a document, note, recording, workflow, or video for the selected session.</p>
             </div>
 
             <div className="flex flex-col gap-1.5">
