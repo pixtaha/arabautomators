@@ -25,6 +25,7 @@ export async function GET() {
       id: s.id as string,
       title: s.title as string,
       orderIndex: s.order_index as number,
+      moduleId: s.module_id as string | null,
       moduleOrderIndex: s.module_id ? (moduleOrderById.get(s.module_id) ?? null) : null,
     }))
     .sort((a, b) => (a.moduleOrderIndex ?? 0) - (b.moduleOrderIndex ?? 0) || a.orderIndex - b.orderIndex);

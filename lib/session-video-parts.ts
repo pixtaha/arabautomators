@@ -10,17 +10,19 @@ export interface SessionVideoPart {
 }
 
 type LecturePart = Pick<SessionVideoPartRow, "id" | "session_id" | "order_index" | "title" | "vdocipher_video_id">;
-type Resource = Pick<SessionResourceRow, "id" | "session_id" | "title" | "type" | "order_index"> &
+type Resource = Pick<SessionResourceRow, "id" | "title" | "type" | "order_index"> &
   Partial<Pick<SessionResourceRow, "video_provider" | "vdocipher_video_id">>;
 
 /**
  * Ordered playback list for a session: the lecture's video parts (from
  * session_video_parts, in order_index order) followed by its video-type
- * resources (general videos, then credential videos).
+ * resources (general videos, then credential videos). Video-type resources
+ * are module-scoped and shared, so `resources` is expected to already be
+ * filtered to the session's module — every video/credential_video resource
+ * passed in is included, not just ones from this specific session.
  */
 export function getSessionVideoParts(sessionId: string, lectureParts: LecturePart[], resources: Resource[]): SessionVideoPart[] {
-  const videoResources = resources.filter((r) => r.session_id === sessionId &&
-    (r.type === "video" || r.type === "credential_video"));
+  const videoResources = resources.filter((r) => r.type === "video" || r.type === "credential_video");
   const overrides = getSessionVideoOverrides(sessionId);
 
   const parts: SessionVideoPart[] = lectureParts

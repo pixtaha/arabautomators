@@ -24,16 +24,16 @@ export async function GET(request: Request) {
   const user = await requireAdmin();
   if (!user) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const sessionId = new URL(request.url).searchParams.get("sessionId");
-  if (!sessionId || !UUID_RE.test(sessionId)) {
-    return Response.json({ error: "Invalid session id." }, { status: 400 });
+  const moduleId = new URL(request.url).searchParams.get("moduleId");
+  if (!moduleId || !UUID_RE.test(moduleId)) {
+    return Response.json({ error: "Invalid module id." }, { status: 400 });
   }
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("session_resources")
     .select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count")
-    .eq("session_id", sessionId)
+    .eq("module_id", moduleId)
     .order("order_index");
 
   if (error) return Response.json({ error: "Could not load resources." }, { status: 500 });
@@ -45,15 +45,15 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const formData = await request.formData();
-  const sessionId = formData.get("sessionId");
+  const moduleId = formData.get("moduleId");
   const type = formData.get("type");
   const title = formData.get("title");
   const file = formData.get("file");
   const text = formData.get("text");
   const pageCountRaw = formData.get("pageCount");
 
-  if (typeof sessionId !== "string" || !UUID_RE.test(sessionId)) {
-    return Response.json({ error: "Choose a session." }, { status: 400 });
+  if (typeof moduleId !== "string" || !UUID_RE.test(moduleId)) {
+    return Response.json({ error: "Choose a module." }, { status: 400 });
   }
   if (typeof type !== "string" || !RESOURCE_TYPES.includes(type as ResourceType)) {
     return Response.json({ error: "Invalid resource type." }, { status: 400 });
@@ -70,17 +70,17 @@ export async function POST(request: Request) {
     if (link.error || !link.source || file instanceof File) {
       return Response.json({ error: link.error ?? "Link a processed video using its provider Video ID." }, { status: 400 });
     }
-    const { data: session, error: sessionError } = await supabase.from("sessions").select("id").eq("id", sessionId).maybeSingle();
-    if (sessionError || !session) {
-      return Response.json({ error: "Session not found." }, { status: 404 });
+    const { data: module, error: moduleError } = await supabase.from("modules").select("id").eq("id", moduleId).maybeSingle();
+    if (moduleError || !module) {
+      return Response.json({ error: "Module not found." }, { status: 404 });
     }
     const verification = await verifyVideoLink(link.source);
     if (verification) return Response.json({ error: verification.error }, { status: verification.status });
     const { data: last, error: orderError } = await supabase.from("session_resources")
-      .select("order_index").eq("session_id", sessionId).order("order_index", { ascending: false }).limit(1);
+      .select("order_index").eq("module_id", moduleId).order("order_index", { ascending: false }).limit(1);
     if (orderError) return Response.json({ error: "Could not save resource." }, { status: 500 });
     const { data: resource, error } = await supabase.from("session_resources").insert({
-      session_id: sessionId, type, title: title.trim(), ...videoResourceFields(link.source),
+      module_id: moduleId, type, title: title.trim(), ...videoResourceFields(link.source),
       file_url: null, order_index: (last?.[0]?.order_index ?? -1) + 1,
     }).select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count").single();
     if (error || !resource) return Response.json({ error: "Could not save resource." }, { status: 500 });
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     contentType = file.type || "application/octet-stream";
   }
 
-  const path = `${sessionId}/${Date.now()}-${filename}`;
+  const path = `${moduleId}/${Date.now()}-${filename}`;
   const buffer = Buffer.from(await uploadBlob.arrayBuffer());
 
   const { error: uploadError } = await supabase.storage
@@ -143,12 +143,12 @@ export async function POST(request: Request) {
   const { count } = await supabase
     .from("session_resources")
     .select("*", { count: "exact", head: true })
-    .eq("session_id", sessionId);
+    .eq("module_id", moduleId);
 
   const { data: inserted, error: insertError } = await supabase
     .from("session_resources")
     .insert({
-      session_id: sessionId,
+      module_id: moduleId,
       type,
       title: title.trim(),
       file_url: publicUrl,

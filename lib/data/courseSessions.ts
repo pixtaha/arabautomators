@@ -32,6 +32,7 @@ export interface CourseSessionRow {
 export interface SessionResourceRow {
   id: string;
   session_id: string | null;
+  module_id: string | null;
   type: string;
   title: string;
   file_url: string | null;
@@ -77,7 +78,9 @@ export async function getCourseSessionData(sessionId: string): Promise<CourseSes
     session.module_id
       ? supabase.from("sessions").select("*").eq("module_id", session.module_id).order("order_index")
       : Promise.resolve({ data: [] }),
-    supabase.from("session_resources").select("*").eq("session_id", sessionId).order("order_index"),
+    session.module_id
+      ? supabase.from("session_resources").select("*").eq("module_id", session.module_id).order("order_index")
+      : Promise.resolve({ data: [] }),
     supabase.from("session_video_parts").select("*").eq("session_id", sessionId).order("order_index"),
   ]);
 

@@ -26,14 +26,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
       return Response.json({ error: "Video not found." }, { status: 404, headers });
     }
     const admin = createAdminClient();
-    const [{ data: session, error: sessionError }, { data: lectureParts, error: partsError }, { data: resources, error: resourceError }, { data: profile }] = await Promise.all([
-      admin.from("sessions").select("id").eq("id", sessionId).maybeSingle(),
+    const { data: session, error: sessionError } = await admin.from("sessions").select("id,module_id").eq("id", sessionId).maybeSingle();
+    if (sessionError || !session) {
+      return Response.json({ error: "Video not found." }, { status: 404, headers });
+    }
+    const [{ data: lectureParts, error: partsError }, { data: resources, error: resourceError }, { data: profile }] = await Promise.all([
       admin.from("session_video_parts").select("id,session_id,order_index,title,vdocipher_video_id").eq("session_id", sessionId),
-      admin.from("session_resources").select("id,session_id,title,type,order_index,video_provider,vdocipher_video_id")
-        .eq("session_id", sessionId).in("type", ["video", "credential_video"]),
+      session.module_id
+        ? admin.from("session_resources").select("id,title,type,order_index,video_provider,vdocipher_video_id")
+            .eq("module_id", session.module_id).in("type", ["video", "credential_video"])
+        : Promise.resolve({ data: [], error: null }),
       admin.from("profiles").select("username").eq("id", activeSession.user.id).maybeSingle(),
     ]);
-    if (sessionError || partsError || resourceError || !session) {
+    if (partsError || resourceError) {
       return Response.json({ error: "Video not found." }, { status: 404, headers });
     }
     const part = getSessionVideoParts(sessionId, lectureParts ?? [], resources ?? []).find((part) => part.id === partId);
