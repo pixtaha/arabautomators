@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin");
   const adminIds = new Set((admins ?? []).map((a) => a.id));
 
-  let query = supabase.from("points_ledger").select("student_id").eq("source_type", "task");
+  let query = supabase.from("points_ledger").select("student_id").in("source_type", ["task", "task_board"]);
   if (start) query = query.gte("created_at", start.toISOString());
 
   const { data: rows, error } = await query;
