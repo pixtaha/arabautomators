@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Avatar } from "@/components/ui/Avatar";
+import { CreateTaskBoardTaskForm } from "@/components/admin/CreateTaskBoardTaskForm";
 
 type Level = "base" | "medium" | "hard";
 
@@ -68,6 +69,7 @@ export function AdminTaskBoardClient() {
   const [pending, setPending] = useState<AdminSubmissionRow[] | null>(null);
   const [approved, setApproved] = useState<AdminSubmissionRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([
@@ -124,6 +126,20 @@ export function AdminTaskBoardClient() {
           {error && <p className="text-xs font-medium text-aa-red-700">{error}</p>}
 
           <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] font-bold tracking-widest text-text-strong uppercase">Tasks</span>
+              <button
+                type="button"
+                onClick={() => setShowCreateTask((v) => !v)}
+                className="cursor-pointer text-xs font-semibold text-text-accent underline"
+              >
+                {showCreateTask ? "Close" : "+ Create new task"}
+              </button>
+            </div>
+            {showCreateTask && <CreateTaskBoardTaskForm onCancel={() => setShowCreateTask(false)} />}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t-2 border-border-hairline pt-8">
             <span className="font-mono text-[11px] font-bold tracking-widest text-text-strong uppercase">
               Awaiting review {pending ? `(${pending.length})` : ""}
             </span>

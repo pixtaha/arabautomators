@@ -15,33 +15,38 @@ export function Header() {
   const { quiz } = useLiveQuiz();
   const { user } = useSupabaseUser();
   const pathname = usePathname();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [hasPendingTask, setHasPendingTask] = useState(false);
 
   const inDashboardArea = DASHBOARD_AREA_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
   const showDashboardLinks = Boolean(user) && inDashboardArea;
 
+  // "My Tasks" is now for every signed-in student, not just admins (the
+  // link itself), but the notification dot on it stays a per-student
+  // concern -- /api/task-board/pending itself excludes admin accounts, so
+  // this never shows a dot for an admin's own "student" row.
   useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
+    // Nothing to reset when this becomes false: the dot itself is only
+    // ever rendered inside `{showDashboardLinks && (...)}` below, so a
+    // stale `true` sitting unused in state has no visible effect, and the
+    // very next time this flips back to true the fetch below runs again
+    // and corrects it before anything is shown.
+    if (!showDashboardLinks) return;
+
     let cancelled = false;
-    fetch("/api/auth/is-admin", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+    fetch("/api/task-board/pending", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { hasPending: false }))
       .then((data) => {
-        if (!cancelled) setIsAdmin(Boolean(data.isAdmin));
+        if (!cancelled) setHasPendingTask(Boolean(data.hasPending));
       })
       .catch(() => {
-        if (!cancelled) setIsAdmin(false);
+        if (!cancelled) setHasPendingTask(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [user]);
-
-  const showMyTasks = showDashboardLinks && isAdmin;
+  }, [showDashboardLinks]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-border-hairline bg-surface-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -50,9 +55,15 @@ export function Header() {
           <Wordmark />
         </Link>
         <nav className="hidden items-center gap-4 sm:flex sm:gap-5">
-          {showMyTasks && (
-            <ButtonLink href="/dashboard/tasks" variant="ghost" size="md">
+          {showDashboardLinks && (
+            <ButtonLink href="/dashboard/task-board" variant="ghost" size="md" className="relative">
               My Tasks
+              {hasPendingTask && (
+                <span className="absolute top-1 right-0.5 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-aa-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-aa-red-500" />
+                </span>
+              )}
             </ButtonLink>
           )}
           <ButtonLink href="/dashboard/tasks-leaderboard" variant="ghost" size="md">
@@ -78,9 +89,15 @@ export function Header() {
           <Link href="/dashboard/tasks-leaderboard" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
             Leaderboard
           </Link>
-          {showMyTasks && (
-            <Link href="/dashboard/tasks" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
+          {showDashboardLinks && (
+            <Link href="/dashboard/task-board" className="relative rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
               Tasks
+              {hasPendingTask && (
+                <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-aa-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-aa-red-500" />
+                </span>
+              )}
             </Link>
           )}
           <AuthStatus />
