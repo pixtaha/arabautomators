@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
+import { Header } from "@/components/layout/Header";
 import type {
   TaskBoardLevel,
   TaskBoardStatus,
@@ -73,6 +74,19 @@ function offeredLevels(task: TaskBoardTaskRow): TaskBoardLevel[] {
 function formatDue(dueAt: string | null) {
   if (!dueAt) return null;
   return `Due ${new Date(dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
+// Same mixed Arabic/English detection as SessionNotesCard.tsx: a text
+// counts as Arabic when Arabic-script characters outnumber Latin ones, so
+// admin-authored fields with embedded English terms (workflow/node names)
+// still get the right paragraph direction.
+const ARABIC_CHAR_RE = /[؀-ۿ]/g;
+const LATIN_CHAR_RE = /[A-Za-z]/g;
+
+function isArabicText(text: string) {
+  const arabicCount = text.match(ARABIC_CHAR_RE)?.length ?? 0;
+  const latinCount = text.match(LATIN_CHAR_RE)?.length ?? 0;
+  return arabicCount > latinCount;
 }
 
 // Levels are genuinely different scope, not just a point multiplier on
@@ -247,8 +261,10 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
   const selectedSubmission = selectedTaskId ? (submissionByTaskId.get(selectedTaskId) ?? null) : null;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-surface-page">
-      <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
+    <div className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
+      <Header />
+      <div className="relative min-h-screen overflow-hidden bg-surface-page">
+        <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
       <div className="relative mx-auto flex max-w-5xl flex-col gap-5 p-4">
       <div className="flex flex-col gap-2 px-1">
         <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Round #1 · tasks</span>
@@ -389,6 +405,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
         />
       )}
       </div>
+      </div>
     </div>
   );
 }
@@ -485,7 +502,12 @@ function TaskDetailModal({
             <span className="font-mono text-[11px] font-bold tracking-widest text-aa-red-700 uppercase">
               Needs changes
             </span>
-            <p className="text-sm text-aa-red-700 text-pretty">{submission?.admin_note}</p>
+            <p
+              dir={submission?.admin_note && isArabicText(submission.admin_note) ? "rtl" : "ltr"}
+              className="text-sm text-aa-red-700 text-pretty"
+            >
+              {submission?.admin_note}
+            </p>
           </div>
         )}
 
@@ -498,7 +520,11 @@ function TaskDetailModal({
           </div>
         )}
 
-        {description && <p className="text-sm text-text-body text-pretty">{description}</p>}
+        {description && (
+          <p dir={isArabicText(description) ? "rtl" : "ltr"} className="text-sm text-text-body text-pretty">
+            {description}
+          </p>
+        )}
 
         {checklist.length > 0 && (
           <div className="flex flex-col gap-2 rounded-card-inner bg-surface-sunken p-4">
@@ -506,7 +532,7 @@ function TaskDetailModal({
             {checklist.map((item, i) => (
               <div key={i} className="flex items-start gap-2.5 text-sm text-text-body">
                 <span className="mt-0.5 h-4 w-4 flex-none rounded border-2 border-border-hairline-strong bg-surface-card" />
-                {item}
+                <span dir={isArabicText(item) ? "rtl" : "ltr"}>{item}</span>
               </div>
             ))}
           </div>
