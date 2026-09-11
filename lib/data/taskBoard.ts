@@ -56,6 +56,11 @@ export interface TaskBoardSubmissionRow {
   submission_file_name: string | null;
   submission_file_size_bytes: number | null;
   submission_note: string | null;
+  // Set by an admin's "send back" action alongside status = 'progress'.
+  // Distinguishes "sent back for changes" from a student's own ordinary
+  // "in progress" placement (also status = 'progress', but admin_note is
+  // null) on the student board. Cleared back to null on approval.
+  admin_note: string | null;
   points_awarded: number | null;
   submitted_at: string | null;
   reviewed_at: string | null;
@@ -82,7 +87,7 @@ const TASK_COLUMNS =
   "id, order_index, title, title_ar, description, description_ar, checklist, due_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, submission_format, resource_youtube_url, resource_link_url, resource_link_label, resource_pdf_url, resource_image_url, is_active";
 
 const SUBMISSION_COLUMNS =
-  "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
+  "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
 
 export async function getActiveTaskBoardTasks(): Promise<TaskBoardTaskRow[]> {
   const supabase = createAdminClient();

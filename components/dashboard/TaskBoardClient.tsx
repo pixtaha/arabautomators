@@ -97,11 +97,15 @@ const AVATAR_STACK_MAX = 4;
 // an admin-only view, so it only ever renders username/avatar_url (never
 // email, points, or submission content). Same fallback-initial pattern as
 // LeaderboardCard.tsx: a colored circle with the first letter when there's
-// no avatar_url.
-function AvatarStack({ people }: { people: TaskCompletionAvatar[] }) {
+// no avatar_url. `size` (px) is the only thing that varies between the
+// card (default, 24px) and the detail modal (36px) -- same overlap ratio,
+// same +N behavior, same data, at both sizes.
+function AvatarStack({ people, size = 24 }: { people: TaskCompletionAvatar[]; size?: number }) {
   if (people.length === 0) return null;
   const visible = people.slice(0, AVATAR_STACK_MAX);
   const overflow = people.length - visible.length;
+  const overlap = Math.round(size * 0.42);
+  const fontSize = Math.max(9, Math.round(size * 0.42));
 
   return (
     <div className="flex items-center">
@@ -109,8 +113,8 @@ function AvatarStack({ people }: { people: TaskCompletionAvatar[] }) {
         <span
           key={p.student_id}
           title={p.username ?? "Student"}
-          style={{ marginLeft: i === 0 ? 0 : "-10px" }}
-          className="grid h-6 w-6 flex-none place-items-center overflow-hidden rounded-full border-2 border-surface-card bg-surface-brand-soft font-display text-[10px] font-bold text-text-accent"
+          style={{ width: size, height: size, marginLeft: i === 0 ? 0 : -overlap, fontSize }}
+          className="grid flex-none place-items-center overflow-hidden rounded-full border-2 border-surface-card bg-surface-brand-soft font-display font-bold text-text-accent"
         >
           {p.avatar_url ? (
             <Avatar src={p.avatar_url} alt={p.username ?? ""} className="h-full w-full" />
@@ -121,8 +125,8 @@ function AvatarStack({ people }: { people: TaskCompletionAvatar[] }) {
       ))}
       {overflow > 0 && (
         <span
-          style={{ marginLeft: "-10px" }}
-          className="grid h-6 w-6 flex-none place-items-center rounded-full border-2 border-surface-card bg-surface-sunken font-mono text-[9px] font-bold text-text-muted"
+          style={{ width: size, height: size, marginLeft: -overlap, fontSize: Math.max(8, Math.round(size * 0.32)) }}
+          className="grid flex-none place-items-center rounded-full border-2 border-surface-card bg-surface-sunken font-mono font-bold text-text-muted"
         >
           +{overflow}
         </span>
@@ -316,6 +320,11 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                     : `${levelPoints(task, level)} pts`;
                   const due = formatDue(task.due_at);
                   const completedBy = completions[task.id] ?? [];
+                  // 'progress' alone just means the student placed it there
+                  // themselves; admin_note only gets set by an admin's
+                  // "send back" action, so together they mean "sent back
+                  // for changes", not "student hasn't touched this yet".
+                  const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
 
                   return (
                     <div
@@ -336,6 +345,11 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                           <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
                           {meta.label}
                         </span>
+                        {sentBack && (
+                          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-aa-red-500/30 bg-surface-danger-soft px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-aa-red-700 uppercase">
+                            Needs changes
+                          </span>
+                        )}
                         {locked && (
                           <span className="ml-auto font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase">
                             Locked
@@ -369,6 +383,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
         <TaskDetailModal
           task={selectedTask}
           submission={selectedSubmission}
+          completedBy={completions[selectedTask.id] ?? []}
           onClose={() => setSelectedTaskId(null)}
           onUpdated={applySubmission}
         />
@@ -381,11 +396,13 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
 function TaskDetailModal({
   task,
   submission,
+  completedBy,
   onClose,
   onUpdated,
 }: {
   task: TaskBoardTaskRow;
   submission: TaskBoardSubmissionRow | null;
+  completedBy: TaskCompletionAvatar[];
   onClose: () => void;
   onUpdated: (submission: TaskBoardSubmissionRow) => void;
 }) {
@@ -399,6 +416,7 @@ function TaskDetailModal({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const locked = submission?.status === "approved";
+  const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
   const canSubmit =
     !busy && !locked && (task.submission_format === "link" ? link.trim().length > 0 : Boolean(file));
   const description = descriptionForLevel(task, level);
@@ -461,6 +479,24 @@ function TaskDetailModal({
             ×
           </button>
         </div>
+
+        {sentBack && (
+          <div className="flex flex-col gap-1.5 rounded-card-inner border border-aa-red-500/30 bg-surface-danger-soft p-4">
+            <span className="font-mono text-[11px] font-bold tracking-widest text-aa-red-700 uppercase">
+              Needs changes
+            </span>
+            <p className="text-sm text-aa-red-700 text-pretty">{submission?.admin_note}</p>
+          </div>
+        )}
+
+        {completedBy.length > 0 && (
+          <div className="flex items-center gap-3">
+            <AvatarStack people={completedBy} size={36} />
+            <span className="font-mono text-xs text-text-faint">
+              {completedBy.length} {completedBy.length === 1 ? "student" : "students"} done
+            </span>
+          </div>
+        )}
 
         {description && <p className="text-sm text-text-body text-pretty">{description}</p>}
 
