@@ -1,5 +1,6 @@
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { getModulesWithSessions } from "@/lib/data/modules";
+import { getStudentWorkflowStatus } from "@/lib/data/n8nWorkflows";
 import { requireDeviceSession } from "@/lib/auth/device-session";
 import { requireAdmin } from "@/lib/adminAuth";
 
@@ -11,9 +12,20 @@ import { requireAdmin } from "@/lib/adminAuth";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  await requireDeviceSession();
-  const [modules, adminUser] = await Promise.all([getModulesWithSessions(), requireAdmin()]);
+  const session = await requireDeviceSession();
+  const [modules, adminUser, workflowStatus] = await Promise.all([
+    getModulesWithSessions(),
+    requireAdmin(),
+    getStudentWorkflowStatus(session.user.email),
+  ]);
   const firstSessionId = modules.find((module) => module.sessionId)?.sessionId ?? null;
 
-  return <DashboardClient modules={modules} firstSessionId={firstSessionId} isAdmin={Boolean(adminUser)} />;
+  return (
+    <DashboardClient
+      modules={modules}
+      firstSessionId={firstSessionId}
+      isAdmin={Boolean(adminUser)}
+      workflowStatus={workflowStatus}
+    />
+  );
 }

@@ -8,11 +8,11 @@ import { Footer } from "@/components/layout/Footer";
 import { useSupabaseUser } from "@/lib/hooks/useSupabaseUser";
 import { ProgressCard } from "@/components/dashboard/ProgressCard";
 import { PointsCard } from "@/components/dashboard/PointsCard";
-import { WorkflowsCard } from "@/components/dashboard/WorkflowsCard";
 import { LeaderboardCard } from "@/components/dashboard/LeaderboardCard";
 import { CourseModulesCard } from "@/components/dashboard/CourseModulesCard";
 import { N8nStatusCard } from "@/components/dashboard/N8nStatusCard";
 import type { ModuleWithSession } from "@/lib/data/modules";
+import type { N8nWorkflowStatus } from "@/lib/data/n8nWorkflows";
 
 // Flip to false to disable the "Go to course" button again without touching its logic.
 const COURSE_ACCESS_ENABLED = true;
@@ -23,10 +23,12 @@ export function DashboardClient({
   modules,
   firstSessionId,
   isAdmin,
+  workflowStatus,
 }: {
   modules: ModuleWithSession[];
   firstSessionId: string | null;
   isAdmin: boolean;
+  workflowStatus: N8nWorkflowStatus;
 }) {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
@@ -105,8 +107,7 @@ export function DashboardClient({
 
             <div className="flex flex-col gap-6">
               <PointsCard studentId={user.id} />
-              <WorkflowsCard />
-              <N8nStatusCard />
+              <N8nStatusCard {...workflowStatus} />
               <LeaderboardCard />
             </div>
           </div>

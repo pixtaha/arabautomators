@@ -1,63 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { N8nWorkflowStatus } from "@/lib/data/n8nWorkflows";
 
-const DEMO_USAGE_PERCENT = 12;
-const DEMO_PUBLISHED_WORKFLOWS = 5;
-const DEMO_UNPUBLISHED_WORKFLOWS = 3;
+export function N8nStatusCard({ status, total, active, inactive }: N8nWorkflowStatus) {
+  const [expanded, setExpanded] = useState(false);
+  const isRunning = status === "ok";
 
-export function N8nStatusCard() {
-  const [filled, setFilled] = useState(false);
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setFilled(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  const breakdown = [
+    { label: "Active", count: active },
+    { label: "Inactive", count: inactive },
+  ];
 
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
+    <div
+      className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card"
+      onMouseEnter={() => isRunning && setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
       <div className="flex items-center justify-between">
         <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">n8n workspace</span>
-        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-text-muted">
-          <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-text-faint" />
-          demo data
+        {isRunning && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+            className="font-mono text-[10px] tracking-widest text-text-faint uppercase transition-colors hover:text-text-accent"
+          >
+            {expanded ? "hide" : "breakdown"}
+          </button>
+        )}
+      </div>
+
+      {isRunning ? (
+        <span className="animate-pulse-ring inline-flex w-fit items-center gap-1.5 rounded-full bg-surface-brand-soft px-3 py-1.5 text-[10px] font-medium tracking-widest text-text-accent uppercase">
+          <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-surface-brand" />
+          Running
         </span>
-      </div>
+      ) : (
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1.5 text-[10px] font-medium tracking-widest text-text-faint uppercase">
+          <span className="block h-1.5 w-1.5 rounded-full bg-text-faint" />
+          Unavailable
+        </span>
+      )}
 
-      <span className="animate-pulse-ring inline-flex w-fit items-center gap-1.5 rounded-full bg-surface-brand-soft px-3 py-1.5 text-[10px] font-medium tracking-widest text-text-accent uppercase">
-        <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-surface-brand" />
-        Running
-      </span>
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-text-body">Resource usage</span>
-          <span className="font-mono text-xs text-text-muted">
-            Avg. {DEMO_USAGE_PERCENT}% of capacity used
+      {isRunning ? (
+        <>
+          <span className="font-display text-[36px] leading-none font-extrabold tracking-tight text-text-strong">
+            {total}
+            <span className="ml-1.5 font-mono text-base font-medium text-text-faint">workflows</span>
           </span>
-        </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+
           <div
-            className="h-full rounded-full bg-surface-brand transition-[width] duration-1000 ease-[var(--ease-smooth)]"
-            style={{ width: filled ? `${DEMO_USAGE_PERCENT}%` : "0%" }}
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1.5 border-t border-border-hairline pt-3.5">
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-text-body">Published workflows</span>
-          <span className="font-mono text-xs text-text-muted">{DEMO_PUBLISHED_WORKFLOWS}</span>
-        </div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-sm text-text-body">Unpublished workflows</span>
-          <span className="font-mono text-xs text-text-muted">{DEMO_UNPUBLISHED_WORKFLOWS}</span>
-        </div>
-      </div>
-
-      <p className="text-xs text-text-muted">
-        Demo data — will show your real workspace usage once your n8n instance is connected.
-      </p>
+            className="grid transition-[grid-template-rows] duration-300 ease-[var(--ease-smooth)]"
+            style={{ gridTemplateRows: expanded ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <div
+                className="mt-1 flex flex-col gap-2 border-t border-border-hairline pt-3 transition-opacity duration-300 ease-[var(--ease-smooth)]"
+                style={{ opacity: expanded ? 1 : 0 }}
+              >
+                {breakdown.map((item, index) => (
+                  <div key={item.label} className="flex items-center justify-between text-xs">
+                    <span className="inline-flex items-center gap-1.5 text-text-muted">
+                      <span
+                        className="animate-blink block h-1.5 w-1.5 rounded-full bg-surface-brand"
+                        style={{ animationDelay: `${index * 150}ms` }}
+                      />
+                      {item.label}
+                    </span>
+                    <span className="font-mono text-text-strong">{item.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-text-muted">Couldn&apos;t reach your n8n instance. Check back later.</p>
+      )}
     </div>
   );
 }
