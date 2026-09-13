@@ -47,28 +47,26 @@ export function ProfileStats({ studentId }: { studentId: string }) {
     Promise.all([
       supabase.from("points_ledger").select("points, created_at").eq("student_id", studentId),
       supabase.from("modules").select("id"),
-      supabase.from("tasks").select("id, module_id"),
-      supabase.from("student_task_status").select("task_id").eq("student_id", studentId).eq("status", "done"),
+      // session_video_parts (needed to work out module completion from real
+      // watch data) has RLS enabled with no policies at all, so it can't be
+      // queried from the browser client the way the rest of this component's
+      // data is -- this one piece goes through a server route instead.
+      fetch("/api/profile/modules-progress")
+        .then((res) => res.json())
+        .catch(() => ({ modulesCompleted: 0 })),
       fetch("/api/points/leaderboard?range=all")
         .then((res) => res.json())
         .catch(() => ({ myRank: null, totalRanked: 0 })),
-    ]).then(([ledger, modules, tasks, doneStatuses, leaderboard]) => {
+    ]).then(([ledger, modules, modulesProgress, leaderboard]) => {
       if (!active) return;
 
       const ledgerRows = ledger.data ?? [];
       const points = ledgerRows.reduce((sum, row) => sum + row.points, 0);
       const activeDays = new Set(ledgerRows.map((row) => localDateKey(new Date(row.created_at))));
 
-      const moduleByTask = new Map((tasks.data ?? []).map((t) => [t.id, t.module_id as string]));
-      const completedModules = new Set(
-        (doneStatuses.data ?? [])
-          .map((row) => moduleByTask.get(row.task_id))
-          .filter((moduleId): moduleId is string => Boolean(moduleId)),
-      );
-
       setStats({
         points,
-        modulesCompleted: completedModules.size,
+        modulesCompleted: modulesProgress.modulesCompleted ?? 0,
         modulesTotal: (modules.data ?? []).length,
         streak: computeStreak(activeDays),
         rank: leaderboard.myRank ?? null,
