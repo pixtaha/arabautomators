@@ -20,11 +20,11 @@ const PENDING_TASK_REVIEWS = 7;
 const NEW_SUBMISSIONS = 7;
 
 const ONLINE_NOW = [
-  { name: "Omar Khaled", handle: "@omar.k", page: "/module/04", since: "قبل 12 د" },
-  { name: "Sara Nabil", handle: "@sara_n", page: "/task-board", since: "قبل 8 د" },
-  { name: "Hassan Adel", handle: "@hassan.adel", page: "/library", since: "قبل 5 د" },
-  { name: "Mona Fathy", handle: "@monaf", page: "/leaderboard", since: "قبل 3 د" },
-  { name: "Youssef Amr", handle: "@yamr", page: "/module/02", since: "قبل 1 د" },
+  { name: "Omar Khaled", handle: "@omar.k", page: "/module/04", since: "12m" },
+  { name: "Sara Nabil", handle: "@sara_n", page: "/task-board", since: "8m" },
+  { name: "Hassan Adel", handle: "@hassan.adel", page: "/library", since: "5m" },
+  { name: "Mona Fathy", handle: "@monaf", page: "/leaderboard", since: "3m" },
+  { name: "Youssef Amr", handle: "@yamr", page: "/module/02", since: "1m" },
 ];
 
 function formatNumber(value: number) {
@@ -172,17 +172,17 @@ function KeyIcon({ className }: { className?: string }) {
 
 export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps) {
   return (
-    <div dir="rtl" lang="ar" className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
+    <div dir="ltr" lang="en" className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
       <header className="sticky top-0 z-30 border-b-2 border-border-hairline bg-surface-card shadow-sm">
         <div className="mx-auto flex max-w-[1180px] items-center gap-3 px-4 py-3 sm:gap-5 sm:px-6">
           <Wordmark />
           <span className="hidden h-6 w-px flex-none bg-border-hairline sm:block" />
           <h1 className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-tight text-text-strong">
-            لوحة الإدارة
+            Admin panel
           </h1>
           <div className="flex flex-none items-center gap-2 rounded-full border border-aa-green-100 bg-surface-brand-soft px-3 py-1.5">
             <span className="h-2 w-2 flex-none animate-blink rounded-full bg-surface-brand" />
-            <span className="font-mono text-[11px] font-semibold text-aa-green-800">متصل</span>
+            <span className="font-mono text-[11px] font-semibold text-aa-green-800">Connected</span>
           </div>
         </div>
       </header>
@@ -196,25 +196,25 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
               <div className="flex flex-col gap-2.5 rounded-card border border-t-4 border-border-hairline border-t-surface-brand bg-surface-card p-5 shadow-card sm:p-6">
                 <div className="flex items-center gap-2">
                   <span className="h-[7px] w-[7px] flex-none animate-blink rounded-full bg-surface-brand" />
-                  <EyebrowLabel>مباشر</EyebrowLabel>
+                  <EyebrowLabel>Live</EyebrowLabel>
                 </div>
-                <div className="text-base font-semibold text-text-strong">المتصفحون على الموقع الآن</div>
+                <div className="text-base font-semibold text-text-strong">On the site right now</div>
                 <div className="font-mono text-[40px] leading-none font-bold tracking-tighter text-text-strong tabular-nums sm:text-[48px]">
                   {formatNumber(liveVisitorCount)}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-sm text-text-muted">
                   <div className="flex items-baseline gap-1.5">
                     <span className="font-mono text-text-accent">{formatNumber(PEAK_CONCURRENT_TODAY)}</span>
-                    <span>أعلى عدد متزامن اليوم</span>
+                    <span>peak concurrent today</span>
                   </div>
-                  <span className="text-xs text-text-faint">مرّر للاطلاع على من</span>
+                  <span className="text-xs text-text-faint">Hover to see who</span>
                 </div>
               </div>
 
               <div className="pointer-events-none absolute inset-x-0 top-full z-20 -translate-y-1 pt-2 opacity-0 transition-[opacity,transform] duration-300 ease-[var(--ease-smooth)] group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
                 <div className="overflow-hidden rounded-card border border-border-hairline bg-surface-card shadow-lg">
                   <div className="flex items-center justify-between gap-3 border-b-2 border-border-hairline px-4 py-3">
-                    <EyebrowLabel>الحسابات المفتوحة الآن</EyebrowLabel>
+                    <EyebrowLabel>Accounts open now</EyebrowLabel>
                     <span className="font-mono text-text-strong">{formatNumber(ONLINE_NOW.length)}</span>
                   </div>
                   <div className="flex flex-col">
@@ -238,21 +238,21 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
                     ))}
                   </div>
                   <div className="bg-surface-sunken px-4 py-2.5 text-xs text-text-muted">
-                    لم يتم رفع صور شخصية بعد — تُعرض الأحرف الأولى بدلاً من ذلك.
+                    No profile photos uploaded yet — initials shown instead.
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="rounded-card border border-t-4 border-border-hairline border-t-surface-accent bg-surface-card p-5 shadow-card sm:p-6">
-              <EyebrowLabel>منذ الإطلاق</EyebrowLabel>
-              <div className="mt-2.5 text-base font-semibold text-text-strong">إجمالي مرات فتح الموقع</div>
+              <EyebrowLabel>Since launch</EyebrowLabel>
+              <div className="mt-2.5 text-base font-semibold text-text-strong">Total site opens</div>
               <div className="mt-3 font-mono text-[40px] leading-none font-bold tracking-tighter text-aa-amber-700 tabular-nums sm:text-[48px]">
                 {formatNumber(totalSiteOpens)}
               </div>
               <div className="mt-2.5 flex items-baseline gap-1.5 text-sm text-text-muted">
                 <span className="font-mono text-text-strong">{formatNumber(OPENS_TODAY)}</span>
-                <span>فتحة اليوم</span>
+                <span>opens today</span>
               </div>
             </div>
           </div>
@@ -261,87 +261,87 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
             <div className="rounded-card border border-border-hairline bg-surface-card p-5 shadow-card">
               <div className="flex items-center gap-2 text-text-muted">
                 <UsersIcon className="h-[18px] w-[18px]" />
-                <span className="text-xs font-semibold text-text-body">إجمالي الطلاب</span>
+                <span className="text-xs font-semibold text-text-body">Total students</span>
               </div>
               <div className="mt-4 font-mono text-3xl font-bold tracking-tight text-text-strong">
                 {formatNumber(TOTAL_STUDENTS)}
               </div>
-              <div className="mt-1.5 text-xs text-text-muted">مسجّلون في الجولة رقم 01</div>
+              <div className="mt-1.5 text-xs text-text-muted">Enrolled in Round #01</div>
             </div>
 
             <div className="rounded-card border border-border-hairline bg-surface-card p-5 shadow-card">
               <div className="flex items-center gap-2 text-text-muted">
                 <ClipboardCheckIcon className="h-[18px] w-[18px]" />
-                <span className="text-xs font-semibold text-text-body">مراجعات لوحة المهام</span>
+                <span className="text-xs font-semibold text-text-body">Task-board reviews</span>
               </div>
               <div className="mt-4 font-mono text-3xl font-bold tracking-tight text-text-strong">
                 {formatNumber(PENDING_TASK_REVIEWS)}
               </div>
-              <div className="mt-1.5 text-xs text-text-muted">بانتظار مراجعتك</div>
+              <div className="mt-1.5 text-xs text-text-muted">Waiting on your review</div>
             </div>
           </div>
 
           <div className="flex flex-col gap-7">
-            <ActionSection label="الطلاب والمحتوى">
+            <ActionSection label="Students & content">
               <Button variant="secondary">
                 <UsersIcon className="h-[18px] w-[18px]" />
-                إدارة الطلاب
+                Manage students
               </Button>
               <Button variant="secondary">
                 <GraduationCapIcon className="h-[18px] w-[18px]" />
-                الوحدات والجلسات
+                Modules & sessions
               </Button>
               <Button variant="secondary">
                 <UploadIcon className="h-[18px] w-[18px]" />
-                رفع جلسة
+                Upload a session
               </Button>
               <Button variant="secondary">
                 <BookOpenIcon className="h-[18px] w-[18px]" />
-                مكتبة المقتطفات
+                Snippet library
               </Button>
             </ActionSection>
 
-            <ActionSection label="التفاعل">
+            <ActionSection label="Engagement">
               <Button variant="secondary">
                 <ListChecksIcon className="h-[18px] w-[18px]" />
-                الاختبارات
+                Quizzes
               </Button>
               <Button variant="secondary">
                 <TrophyIcon className="h-[18px] w-[18px]" />
-                لوحة المتصدرين
+                Leaderboard
               </Button>
               <Button variant="secondary">
                 <StarIcon className="h-[18px] w-[18px]" />
-                النقاط
+                Points
               </Button>
             </ActionSection>
 
-            <ActionSection label="مشاركات السوشال ميديا">
+            <ActionSection label="Social submissions">
               <Button variant="secondary">
                 <InboxIcon className="h-[18px] w-[18px]" />
-                مراجعة المشاركات
+                Review submissions
               </Button>
               <span className="inline-flex h-6 items-center rounded-full bg-surface-sunken px-2.5 font-mono text-[11px] font-semibold text-text-muted">
-                {NEW_SUBMISSIONS} جديدة
+                {NEW_SUBMISSIONS} new
               </span>
               <Button variant="secondary">
                 <LinkIcon className="h-[18px] w-[18px]" />
-                الروابط المُرسلة
+                Submitted links
               </Button>
             </ActionSection>
 
-            <ActionSection label="البنية التحتية">
+            <ActionSection label="Infrastructure">
               <Button variant="ink">
                 <WorkflowIcon className="h-[18px] w-[18px]" />
-                دفع سير العمل للطلاب
+                Push workflow to students
               </Button>
               <Button variant="secondary">
                 <FlaskIcon className="h-[18px] w-[18px]" />
-                مختبر API
+                API Lab
               </Button>
               <Button variant="secondary">
                 <KeyIcon className="h-[18px] w-[18px]" />
-                مفاتيح OpenRouter
+                OpenRouter keys
               </Button>
             </ActionSection>
           </div>
