@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import Script from "next/script";
 import { UnsupportedBrowserCard } from "@/components/course/UnsupportedBrowserCard";
 import { isUnsupportedVdoCipherBrowser } from "@/lib/vdocipher-browser";
 
@@ -9,12 +10,43 @@ const subscribeToBrowser = () => () => {};
 const getBrowserSnapshot = () => isUnsupportedVdoCipherBrowser(navigator.userAgent);
 const getServerSnapshot = () => null;
 
+// VdoCipher's official player API (loaded below via player.vdocipher.com/v2/api.js)
+// exposes a global VdoPlayer.getInstance(iframe) -> { video, api }. `video`
+// mirrors HTMLMediaElement: addEventListener('play' | 'pause' | 'timeupdate'
+// | 'ended' | ...) behaves exactly like a normal <video>, but every property
+// read (currentTime, duration) resolves as a Promise, since the actual
+// element lives inside the cross-origin iframe and can't be read
+// synchronously. This is the officially documented integration point (see
+// vdocipher.com/docs/player/v2/api-reference/accessing-player/ and
+// .../video-apis/) -- not raw postMessage parsing.
+interface VdoCipherVideoProxy {
+  readonly currentTime: number | Promise<number>;
+  readonly duration: number | Promise<number>;
+  addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
+}
+
+declare global {
+  interface Window {
+    VdoPlayer?: { getInstance(iframe: HTMLIFrameElement): { video: VdoCipherVideoProxy } };
+  }
+}
+
+// Sampled on this interval while playing, rather than on every single
+// 'timeupdate' tick (which can fire multiple times a second) -- plus an
+// immediate flush on pause/ended so stopping early still records an
+// accurate position.
+const PROGRESS_REPORT_INTERVAL_MS = 12_000;
+
 export function VdoCipherPlayer({ sessionId, partId, title }: { sessionId: string; partId: string; title: string }) {
   const unsupportedBrowser = useSyncExternalStore(subscribeToBrowser, getBrowserSnapshot, getServerSnapshot);
   const source = `/api/course/${encodeURIComponent(sessionId)}/parts/${encodeURIComponent(partId)}/playback`;
   const [playback, setPlayback] = useState<{ source: string; embedUrl: string } | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [scriptReady, setScriptReady] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
     // Resolve support before requesting authorization or loading the third-party iframe.
@@ -48,12 +80,61 @@ export function VdoCipherPlayer({ sessionId, partId, title }: { sessionId: strin
     return () => controller.abort();
   }, [source, attempt, unsupportedBrowser]);
 
+  // Wires up watch-progress reporting once both the api.js script and this
+  // part's iframe have loaded. VdoCipherPlayer is remounted (via a `key`
+  // keyed on sessionId+partId in SessionVideoStage) on every part switch, so
+  // this effect's cleanup runs on every switch as well as on unmount -- no
+  // stale interval/listener can leak onto a different part's iframe.
+  useEffect(() => {
+    if (!scriptReady || !iframeLoaded) return;
+    const iframe = iframeRef.current;
+    if (!iframe || !window.VdoPlayer) return;
+
+    const player = window.VdoPlayer.getInstance(iframe);
+    let disposed = false;
+
+    async function report() {
+      const [position, duration] = await Promise.all([
+        Promise.resolve(player.video.currentTime),
+        Promise.resolve(player.video.duration),
+      ]);
+      if (disposed || !Number.isFinite(position)) return;
+      fetch("/api/course/video-progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          sessionVideoPartId: partId,
+          positionSeconds: position,
+          durationSeconds: Number.isFinite(duration) && duration > 0 ? duration : undefined,
+        }),
+      }).catch(() => {
+        // Best-effort telemetry -- a failed report must never affect playback.
+      });
+    }
+
+    const interval = setInterval(() => void report(), PROGRESS_REPORT_INTERVAL_MS);
+    const onStop = () => void report();
+    player.video.addEventListener("pause", onStop);
+    player.video.addEventListener("ended", onStop);
+
+    return () => {
+      disposed = true;
+      clearInterval(interval);
+      player.video.removeEventListener("pause", onStop);
+      player.video.removeEventListener("ended", onStop);
+    };
+  }, [scriptReady, iframeLoaded, partId]);
+
   if (unsupportedBrowser) return <UnsupportedBrowserCard />;
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-card border border-border-hairline bg-surface-ink shadow-card">
+      <Script id="vdocipher-player-api" src="https://player.vdocipher.com/v2/api.js" onReady={() => setScriptReady(true)} />
       {playback?.source === source ? (
         <iframe
+          ref={iframeRef}
+          onLoad={() => setIframeLoaded(true)}
           src={playback.embedUrl}
           title={title}
           className="absolute inset-0 h-full w-full border-0"
