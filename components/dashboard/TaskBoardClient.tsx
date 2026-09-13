@@ -903,6 +903,7 @@ function TaskDetailModal({
 
               {!locked && (
                 <textarea
+                  dir={isArabicText(note) ? "rtl" : "ltr"}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Optional note for the reviewer"

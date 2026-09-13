@@ -120,6 +120,11 @@ export async function POST(request: Request) {
   const submissionLinkLabel =
     typeof body.submissionLinkLabel === "string" && body.submissionLinkLabel.trim() ? body.submissionLinkLabel.trim() : null;
 
+  // The client sends a full ISO instant here (already anchored to Cairo
+  // local time via cairoDateStringToUtcInstant() in
+  // CreateTaskBoardTaskForm.tsx), not a bare "YYYY-MM-DD" -- so this is
+  // just validating/normalizing an unambiguous timestamp, not doing any
+  // timezone conversion of its own.
   function parseDate(input: unknown, label: string): { value: string | null } | { error: string } {
     if (typeof input !== "string" || !input.trim()) return { value: null };
     const parsed = new Date(input);

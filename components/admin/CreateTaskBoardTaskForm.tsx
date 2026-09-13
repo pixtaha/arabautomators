@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ALLOWED_CODE_LANGUAGES } from "@/lib/taskBoardConstants";
+import { cairoDateStringToUtcInstant } from "@/lib/dateHelpers";
 
 type LevelKey = "base" | "medium" | "hard";
 
@@ -166,6 +167,10 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
       }
     }
 
+    // Pure calendar-day ordering check on the raw "YYYY-MM-DD" strings --
+    // both sides get the same (technically UTC-midnight) parsing here, so
+    // same-day/day-order comparisons are unaffected by which timezone the
+    // actual stored instant below gets anchored to.
     if (startAt && endAt && new Date(startAt).getTime() > new Date(endAt).getTime()) {
       setFormError("Start date must be before end date.");
       return;
@@ -195,8 +200,14 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
-      startAt: startAt ? new Date(startAt).toISOString() : null,
-      endAt: endAt ? new Date(endAt).toISOString() : null,
+      // Anchored to Cairo local time, not UTC -- a bare `new Date("2026-09-14")`
+      // parses as UTC midnight per the JS spec, which is several hours
+      // before Cairo's actual midnight during DST and doesn't match the
+      // calendar day the admin picked. end_at is end-of-day (23:59:59.999
+      // Cairo), not start-of-day, so a task "due Sep 18" stays open through
+      // all of Sep 18 Cairo time rather than locking at its very start.
+      startAt: startAt ? cairoDateStringToUtcInstant(startAt) : null,
+      endAt: endAt ? cairoDateStringToUtcInstant(endAt, true) : null,
       requiresLink,
       requiresPdf,
       requiresImage,

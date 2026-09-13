@@ -77,6 +77,23 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Same mixed Arabic/English detection as SessionNotesCard.tsx and
+// TaskBoardClient.tsx: a text counts as Arabic when Arabic-script
+// characters outnumber Latin ones, so text with embedded English terms
+// (workflow/node names) still gets the right paragraph direction. Not
+// imported from TaskBoardClient.tsx because it's a local, non-exported
+// helper there too -- matches this file's existing convention of
+// duplicating small view-layer helpers (formatDate/formatSize above,
+// offeredLevels/levelPoints below) rather than sharing them.
+const ARABIC_CHAR_RE = /[؀-ۿ]/g;
+const LATIN_CHAR_RE = /[A-Za-z]/g;
+
+function isArabicText(text: string) {
+  const arabicCount = text.match(ARABIC_CHAR_RE)?.length ?? 0;
+  const latinCount = text.match(LATIN_CHAR_RE)?.length ?? 0;
+  return arabicCount > latinCount;
+}
+
 type FileKind = "pdf" | "image" | "video" | "file";
 
 // Replaces the old single task_submission_format branch: one entry per
@@ -357,7 +374,11 @@ function SubmissionReviewCard({
         ))}
       </div>
 
-      {row.submission_note && <p className="text-sm text-text-body">{row.submission_note}</p>}
+      {row.submission_note && (
+        <p dir={isArabicText(row.submission_note) ? "rtl" : "ltr"} className="text-sm text-text-body text-pretty">
+          {row.submission_note}
+        </p>
+      )}
 
       {row.submission_code && (
         <div className="flex flex-col gap-1.5">
@@ -458,6 +479,7 @@ function SubmissionReviewCard({
       {sendingBack && (
         <div className="flex flex-col gap-2 rounded-card-inner border border-aa-red-500/30 bg-surface-danger-soft p-3">
           <textarea
+            dir={isArabicText(note) ? "rtl" : "ltr"}
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="What does the student need to fix?"
