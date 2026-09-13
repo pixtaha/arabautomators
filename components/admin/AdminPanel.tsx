@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Wordmark } from "@/components/layout/Wordmark";
 import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 
 export interface AdminPanelProps {
   /** Visitors currently on the site. Rendered as-is -- wire this to real-time data from the caller. */
@@ -328,6 +329,17 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
                 <LinkIcon className="h-[18px] w-[18px]" />
                 Submitted links
               </Button>
+            </ActionSection>
+
+            <ActionSection label="Task board">
+              <ButtonLink href="/admin/task-board" variant="secondary">
+                <ListChecksIcon className="h-[18px] w-[18px]" />
+                Manage tasks
+              </ButtonLink>
+              <ButtonLink href="/admin/task-board/submissions" variant="secondary">
+                <ClipboardCheckIcon className="h-[18px] w-[18px]" />
+                Review submissions
+              </ButtonLink>
             </ActionSection>
 
             <ActionSection label="Infrastructure">
