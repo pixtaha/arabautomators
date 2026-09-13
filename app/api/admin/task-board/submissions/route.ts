@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("task_board_submissions")
     .select(
-      "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at",
+      "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_pdf_path, submission_pdf_name, submission_pdf_size_bytes, submission_image_path, submission_image_name, submission_image_size_bytes, submission_video_path, submission_video_name, submission_video_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at",
     )
     .order("submitted_at", { ascending: true });
 
@@ -40,7 +40,9 @@ export async function GET(request: Request) {
   const [{ data: tasks }, { data: profiles }] = await Promise.all([
     supabase
       .from("task_board_tasks")
-      .select("id, title, submission_format, points_base, points_medium, points_hard")
+      .select(
+        "id, title, requires_link, requires_pdf, requires_image, requires_video, requires_file, submission_link_label, points_base, points_medium, points_hard",
+      )
       .in("id", taskIds),
     supabase.from("profiles").select("id, username, avatar_url").in("id", studentIds),
   ]);
@@ -54,7 +56,12 @@ export async function GET(request: Request) {
     return {
       ...row,
       task_title: task?.title ?? "Task",
-      task_submission_format: task?.submission_format ?? "file",
+      task_requires_link: task?.requires_link ?? false,
+      task_requires_pdf: task?.requires_pdf ?? false,
+      task_requires_image: task?.requires_image ?? false,
+      task_requires_video: task?.requires_video ?? false,
+      task_requires_file: task?.requires_file ?? false,
+      task_submission_link_label: task?.submission_link_label ?? null,
       task_points_base: task?.points_base ?? null,
       task_points_medium: task?.points_medium ?? null,
       task_points_hard: task?.points_hard ?? null,

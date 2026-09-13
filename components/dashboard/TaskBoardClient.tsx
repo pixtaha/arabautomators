@@ -1,15 +1,55 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Avatar } from "@/components/ui/Avatar";
 import { Header } from "@/components/layout/Header";
 import type {
+  SubmissionFileKind,
   TaskBoardLevel,
+  TaskBoardResourceRow,
   TaskBoardStatus,
   TaskBoardSubmissionRow,
   TaskBoardTaskRow,
   TaskCompletionAvatar,
 } from "@/lib/data/taskBoard";
+
+// One entry per requires_* flag that still corresponds to a single-value
+// file upload (link is handled separately -- it's text, not a file).
+interface PrimaryFileKindMeta {
+  kind: SubmissionFileKind;
+  label: string;
+  accept?: string;
+}
+const PRIMARY_FILE_KINDS: PrimaryFileKindMeta[] = [
+  { kind: "pdf", label: "PDF", accept: "application/pdf" },
+  { kind: "image", label: "Image", accept: "image/png,image/jpeg,image/webp" },
+  { kind: "video", label: "Video", accept: "video/*" },
+  { kind: "file", label: "File" },
+];
+
+function taskRequiresKind(task: TaskBoardTaskRow, kind: SubmissionFileKind): boolean {
+  if (kind === "pdf") return task.requires_pdf;
+  if (kind === "image") return task.requires_image;
+  if (kind === "video") return task.requires_video;
+  return task.requires_file;
+}
+
+function submissionFileNameForKind(submission: TaskBoardSubmissionRow | null, kind: SubmissionFileKind): string | null {
+  if (!submission) return null;
+  if (kind === "pdf") return submission.submission_pdf_name;
+  if (kind === "image") return submission.submission_image_name;
+  if (kind === "video") return submission.submission_video_name;
+  return submission.submission_file_name;
+}
+
+// Levels a resource is visible for -- 'general' resources show regardless
+// of the currently-selected level, matching descriptionForLevel/
+// checklistForLevel's own fallback reasoning just above.
+function resourceVisibleForLevel(resource: TaskBoardResourceRow, level: TaskBoardLevel): boolean {
+  return resource.scope === "general" || (resource.levels?.includes(level) ?? false);
+}
 
 const LEVEL_META: Record<
   TaskBoardLevel,
@@ -204,12 +244,14 @@ interface TaskBoardClientProps {
   initialTasks: TaskBoardTaskRow[];
   initialSubmissions: TaskBoardSubmissionRow[];
   initialCompletions: Record<string, TaskCompletionAvatar[]>;
+  initialResources: Record<string, TaskBoardResourceRow[]>;
 }
 
-export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompletions }: TaskBoardClientProps) {
+export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompletions, initialResources }: TaskBoardClientProps) {
   const [tasks] = useState(initialTasks);
   const [submissions, setSubmissions] = useState(initialSubmissions);
   const [completions, setCompletions] = useState(initialCompletions);
+  const [resources] = useState(initialResources);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
@@ -420,6 +462,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
           task={selectedTask}
           submission={selectedSubmission}
           completedBy={completions[selectedTask.id] ?? []}
+          resources={resources[selectedTask.id] ?? []}
           onClose={() => setSelectedTaskId(null)}
           onUpdated={applySubmission}
         />
@@ -434,12 +477,14 @@ function TaskDetailModal({
   task,
   submission,
   completedBy,
+  resources,
   onClose,
   onUpdated,
 }: {
   task: TaskBoardTaskRow;
   submission: TaskBoardSubmissionRow | null;
   completedBy: TaskCompletionAvatar[];
+  resources: TaskBoardResourceRow[];
   onClose: () => void;
   onUpdated: (submission: TaskBoardSubmissionRow) => void;
 }) {
@@ -447,7 +492,7 @@ function TaskDetailModal({
   const [level, setLevel] = useState<TaskBoardLevel>(submission?.level ?? levels[0]);
   const [link, setLink] = useState(submission?.submission_link ?? "");
   const [note, setNote] = useState(submission?.submission_note ?? "");
-  const [file, setFile] = useState<File | null>(null);
+  const [primaryFiles, setPrimaryFiles] = useState<Partial<Record<SubmissionFileKind, File>>>({});
   const [code, setCode] = useState(submission?.submission_code ?? "");
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [existingScreenshots, setExistingScreenshots] = useState<
@@ -460,10 +505,11 @@ function TaskDetailModal({
   const locked = submission?.status === "approved";
   const notYetStarted = isNotYetStarted(task);
   const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
-  const primaryOk = task.submission_format === "link" ? link.trim().length > 0 : Boolean(file);
+  const linkOk = !task.requires_link || link.trim().length > 0;
+  const primaryFilesOk = PRIMARY_FILE_KINDS.every((meta) => !taskRequiresKind(task, meta.kind) || Boolean(primaryFiles[meta.kind]));
   const codeOk = !task.requires_code || code.trim().length > 0;
   const screenshotsOk = !task.requires_screenshots || screenshotFiles.length > 0;
-  const canSubmit = !busy && !locked && !notYetStarted && primaryOk && codeOk && screenshotsOk;
+  const canSubmit = !busy && !locked && !notYetStarted && linkOk && primaryFilesOk && codeOk && screenshotsOk;
   const description = descriptionForLevel(task, level);
   const checklist = checklistForLevel(task, level);
 
@@ -515,15 +561,17 @@ function TaskDetailModal({
   async function handleSubmit() {
     setBusy(true);
     setLocalError(null);
-    setProgress(task.submission_format !== "link" || screenshotFiles.length > 0 ? 0 : null);
+    const hasUpload = Object.keys(primaryFiles).length > 0 || screenshotFiles.length > 0;
+    setProgress(hasUpload ? 0 : null);
 
     const formData = new FormData();
     formData.append("level", level);
     if (note.trim()) formData.append("note", note.trim());
-    if (task.submission_format === "link") {
-      formData.append("link", link.trim());
-    } else if (file) {
-      formData.append("file", file);
+    if (task.requires_link) formData.append("link", link.trim());
+    for (const meta of PRIMARY_FILE_KINDS) {
+      if (!taskRequiresKind(task, meta.kind)) continue;
+      const picked = primaryFiles[meta.kind];
+      if (picked) formData.append(meta.kind === "file" ? "file" : `${meta.kind}File`, picked);
     }
     if (task.requires_code) formData.append("code", code.trim());
     for (const f of screenshotFiles) formData.append("files", f);
@@ -537,12 +585,12 @@ function TaskDetailModal({
       return;
     }
     onUpdated(result.submission);
-    setFile(null);
+    setPrimaryFiles({});
     setScreenshotFiles([]);
   }
 
-  async function openFile() {
-    const res = await fetch(`/api/task-board/tasks/${task.id}/submission/file`);
+  async function openFile(kind: SubmissionFileKind) {
+    const res = await fetch(`/api/task-board/tasks/${task.id}/submission/file?type=${kind}`);
     const data = await res.json().catch(() => null);
     if (res.ok && data?.url) window.open(data.url, "_blank", "noopener,noreferrer");
   }
@@ -622,38 +670,48 @@ function TaskDetailModal({
           </div>
         )}
 
-        {(task.resource_link_url || task.resource_youtube_url || task.resource_pdf_url) && (
-          <div className="flex flex-wrap gap-2">
-            {task.resource_youtube_url && (
-              <a
-                href={task.resource_youtube_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-8 items-center rounded-control bg-surface-ink px-3 text-xs font-semibold text-text-inverse"
-              >
-                Watch on YouTube
-              </a>
-            )}
-            {task.resource_link_url && (
-              <a
-                href={task.resource_link_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-8 items-center gap-2 rounded-control border border-border-hairline-strong px-3 text-xs font-semibold text-text-strong"
-              >
-                {task.resource_link_label ?? "Reference link"} ↗
-              </a>
-            )}
-            {task.resource_pdf_url && (
-              <a
-                href={task.resource_pdf_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-8 items-center gap-2 rounded-control border border-border-hairline-strong px-3 text-xs font-semibold text-text-strong"
-              >
-                Download brief ↗
-              </a>
-            )}
+        {resources.filter((r) => resourceVisibleForLevel(r, level)).length > 0 && (
+          <div className="flex flex-col gap-3">
+            {resources
+              .filter((r) => resourceVisibleForLevel(r, level))
+              .map((r) => {
+                if (r.type === "code") {
+                  return (
+                    <div key={r.id} className="flex flex-col gap-1.5">
+                      {r.label && <span className="text-xs font-semibold text-text-strong">{r.label}</span>}
+                      <div className="overflow-hidden rounded-card-inner border border-border-hairline text-xs">
+                        <SyntaxHighlighter
+                          language={r.code_language ?? "javascript"}
+                          style={oneLight}
+                          customStyle={{ margin: 0, fontSize: "12px" }}
+                        >
+                          {r.code_content ?? ""}
+                        </SyntaxHighlighter>
+                      </div>
+                    </div>
+                  );
+                }
+                if (r.type === "image") {
+                  return (
+                    <a key={r.id} href={r.url ?? "#"} target="_blank" rel="noreferrer" className="block">
+                      {r.label && <span className="mb-1.5 block text-xs font-semibold text-text-strong">{r.label}</span>}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={r.url ?? undefined} alt={r.label ?? "Resource image"} className="max-h-64 rounded-card-inner border border-border-hairline object-contain" />
+                    </a>
+                  );
+                }
+                return (
+                  <a
+                    key={r.id}
+                    href={r.url ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-8 w-fit items-center gap-2 rounded-control border border-border-hairline-strong px-3 text-xs font-semibold text-text-strong"
+                  >
+                    {r.label ?? (r.type === "video" ? "Watch video" : "Download PDF")} ↗
+                  </a>
+                );
+              })}
           </div>
         )}
 
@@ -685,7 +743,9 @@ function TaskDetailModal({
         <div className="flex flex-col gap-3 border-t-2 border-border-hairline pt-5">
           <div className="flex items-baseline justify-between gap-3">
             <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Your submission</span>
-            {task.submission_format !== "link" && <span className="font-mono text-xs text-text-faint">MAX 300 MB</span>}
+            {(task.requires_pdf || task.requires_image || task.requires_video || task.requires_file) && (
+              <span className="font-mono text-xs text-text-faint">MAX 300 MB per file</span>
+            )}
           </div>
 
           {notYetStarted ? (
@@ -695,35 +755,70 @@ function TaskDetailModal({
           ) : (
             <>
               {locked ? (
-                <div className="flex items-center gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
-                  <span className="text-aa-green-700">✓</span>
-                  <span className="min-w-0 overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-aa-green-800">
-                    {task.submission_format === "link" ? submission?.submission_link : submission?.submission_file_name}
-                  </span>
+                <div className="flex flex-col gap-2">
+                  {task.requires_link && (
+                    <div className="flex items-center gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
+                      <span className="text-aa-green-700">✓</span>
+                      <span className="min-w-0 overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-aa-green-800">
+                        {submission?.submission_link}
+                      </span>
+                    </div>
+                  )}
+                  {PRIMARY_FILE_KINDS.filter((meta) => taskRequiresKind(task, meta.kind)).map((meta) => (
+                    <div key={meta.kind} className="flex items-center gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
+                      <span className="text-aa-green-700">✓</span>
+                      <span className="min-w-0 overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-aa-green-800">
+                        {submissionFileNameForKind(submission, meta.kind)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ) : task.submission_format === "link" ? (
-                <input
-                  type="text"
-                  placeholder="https://"
-                  value={link}
-                  onChange={(e) => setLink(e.target.value)}
-                  className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 font-mono text-sm text-text-strong"
-                />
               ) : (
-                <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center">
-                  <span className="text-sm font-semibold text-text-strong">{file ? file.name : "Choose a file to upload"}</span>
-                  <span className="text-xs text-text-muted">{task.submission_format.toUpperCase()} · up to 300 MB</span>
-                  <label className="mt-1 inline-flex h-8 cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
-                    Choose file
-                    <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-                  </label>
-                </div>
-              )}
+                <>
+                  {task.requires_link && (
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-xs font-semibold text-text-strong">{task.submission_link_label ?? "Submission link"}</span>
+                      <input
+                        type="text"
+                        placeholder="https://"
+                        value={link}
+                        onChange={(e) => setLink(e.target.value)}
+                        className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 font-mono text-sm text-text-strong"
+                      />
+                    </div>
+                  )}
 
-              {submission?.submission_file_name && !locked && (
-                <button type="button" onClick={openFile} className="self-start text-xs font-semibold text-text-accent underline">
-                  View current file
-                </button>
+                  {PRIMARY_FILE_KINDS.filter((meta) => taskRequiresKind(task, meta.kind)).map((meta) => (
+                    <div key={meta.kind} className="flex flex-col gap-1.5">
+                      <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center">
+                        <span className="text-sm font-semibold text-text-strong">
+                          {primaryFiles[meta.kind] ? primaryFiles[meta.kind]!.name : `Choose a ${meta.label.toLowerCase()} to upload`}
+                        </span>
+                        <span className="text-xs text-text-muted">{meta.label.toUpperCase()} · up to 300 MB</span>
+                        <label className="mt-1 inline-flex h-8 cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
+                          Choose file
+                          <input
+                            type="file"
+                            accept={meta.accept}
+                            className="hidden"
+                            onChange={(e) =>
+                              setPrimaryFiles((prev) => ({ ...prev, [meta.kind]: e.target.files?.[0] ?? undefined }))
+                            }
+                          />
+                        </label>
+                      </div>
+                      {submissionFileNameForKind(submission, meta.kind) && (
+                        <button
+                          type="button"
+                          onClick={() => openFile(meta.kind)}
+                          className="self-start text-xs font-semibold text-text-accent underline"
+                        >
+                          View current {meta.label.toLowerCase()}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </>
               )}
 
               {task.requires_code && (

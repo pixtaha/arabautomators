@@ -26,6 +26,12 @@ interface AdminSubmissionRow {
   submission_link: string | null;
   submission_file_name: string | null;
   submission_file_size_bytes: number | null;
+  submission_pdf_name: string | null;
+  submission_pdf_size_bytes: number | null;
+  submission_image_name: string | null;
+  submission_image_size_bytes: number | null;
+  submission_video_name: string | null;
+  submission_video_size_bytes: number | null;
   submission_note: string | null;
   submission_code: string | null;
   admin_note: string | null;
@@ -33,7 +39,12 @@ interface AdminSubmissionRow {
   submitted_at: string | null;
   reviewed_at: string | null;
   task_title: string;
-  task_submission_format: string;
+  task_requires_link: boolean;
+  task_requires_pdf: boolean;
+  task_requires_image: boolean;
+  task_requires_video: boolean;
+  task_requires_file: boolean;
+  task_submission_link_label: string | null;
   task_points_base: number | null;
   task_points_medium: number | null;
   task_points_hard: number | null;
@@ -65,6 +76,18 @@ function formatSize(bytes: number | null) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+type FileKind = "pdf" | "image" | "video" | "file";
+
+// Replaces the old single task_submission_format branch: one entry per
+// requires_* flag that corresponds to a file attachment (link is rendered
+// separately, as text rather than a file).
+const FILE_KINDS: { kind: FileKind; requiresKey: "task_requires_pdf" | "task_requires_image" | "task_requires_video" | "task_requires_file"; nameKey: "submission_pdf_name" | "submission_image_name" | "submission_video_name" | "submission_file_name"; sizeKey: "submission_pdf_size_bytes" | "submission_image_size_bytes" | "submission_video_size_bytes" | "submission_file_size_bytes" }[] = [
+  { kind: "pdf", requiresKey: "task_requires_pdf", nameKey: "submission_pdf_name", sizeKey: "submission_pdf_size_bytes" },
+  { kind: "image", requiresKey: "task_requires_image", nameKey: "submission_image_name", sizeKey: "submission_image_size_bytes" },
+  { kind: "video", requiresKey: "task_requires_video", nameKey: "submission_video_name", sizeKey: "submission_video_size_bytes" },
+  { kind: "file", requiresKey: "task_requires_file", nameKey: "submission_file_name", sizeKey: "submission_file_size_bytes" },
+];
 
 export function AdminTaskBoardClient() {
   const [pending, setPending] = useState<AdminSubmissionRow[] | null>(null);
@@ -226,8 +249,8 @@ function SubmissionReviewCard({
     setTimeout(() => setCodeCopied(false), 1500);
   }
 
-  async function openFile() {
-    const res = await fetch(`/api/admin/task-board/submissions/${row.id}/file`);
+  async function openFile(kind: FileKind) {
+    const res = await fetch(`/api/admin/task-board/submissions/${row.id}/file?type=${kind}`);
     const data = await res.json().catch(() => null);
     if (res.ok && data?.url) window.open(data.url, "_blank", "noopener,noreferrer");
     else onError(data?.error ?? "Could not open file.");
@@ -301,31 +324,37 @@ function SubmissionReviewCard({
         <span className="text-sm font-semibold text-text-strong">{row.task_title}</span>
       </div>
 
-      <div className="flex items-center gap-3 rounded-card-inner bg-surface-sunken px-4 py-3">
-        {row.task_submission_format === "link" ? (
-          <a
-            href={row.submission_link ?? "#"}
-            target="_blank"
-            rel="noreferrer"
-            className="min-w-0 flex-1 truncate font-mono text-sm text-text-accent underline"
-          >
-            {row.submission_link}
-          </a>
-        ) : (
-          <>
+      <div className="flex flex-col gap-2">
+        {row.task_requires_link && (
+          <div className="flex items-center gap-3 rounded-card-inner bg-surface-sunken px-4 py-3">
+            <span className="font-mono text-[10px] tracking-widest text-text-faint uppercase">
+              {row.task_submission_link_label ?? "Submission link"}
+            </span>
+            <a
+              href={row.submission_link ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="min-w-0 flex-1 truncate font-mono text-sm text-text-accent underline"
+            >
+              {row.submission_link}
+            </a>
+          </div>
+        )}
+        {FILE_KINDS.filter((f) => row[f.requiresKey]).map((f) => (
+          <div key={f.kind} className="flex items-center gap-3 rounded-card-inner bg-surface-sunken px-4 py-3">
             <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-strong">
-              {row.submission_file_name ?? "No file"}
-              {row.submission_file_size_bytes ? ` · ${formatSize(row.submission_file_size_bytes)}` : ""}
+              {row[f.nameKey] ?? "No file"}
+              {row[f.sizeKey] ? ` · ${formatSize(row[f.sizeKey])}` : ""}
             </span>
             <button
               type="button"
-              onClick={openFile}
+              onClick={() => openFile(f.kind)}
               className="flex-none rounded-control border border-border-hairline-strong bg-surface-card px-3 py-1.5 text-xs font-semibold text-text-strong hover:bg-surface-hover"
             >
               Open
             </button>
-          </>
-        )}
+          </div>
+        ))}
       </div>
 
       {row.submission_note && <p className="text-sm text-text-body">{row.submission_note}</p>}

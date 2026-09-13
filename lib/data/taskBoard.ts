@@ -1,9 +1,28 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type TaskBoardSubmissionFormat = "link" | "pdf" | "image" | "video" | "file";
 export type TaskBoardStatus = "todo" | "progress" | "submitted" | "reviewing" | "approved";
 export type TaskBoardLevel = "base" | "medium" | "hard";
+
+// Kinds of single-value file attachment a submission can carry -- "file" is
+// the generic/original one; pdf/image/video were added when
+// submission_format was replaced by independent per-type flags. Screenshots
+// are NOT one of these -- they live in task_board_submission_files since a
+// submission can have any number of them, not just zero-or-one.
+export type SubmissionFileKind = "file" | "pdf" | "image" | "video";
+
+export const SUBMISSION_FILE_KIND_COLUMNS: Record<
+  SubmissionFileKind,
+  { path: keyof TaskBoardSubmissionRow; name: keyof TaskBoardSubmissionRow; size: keyof TaskBoardSubmissionRow }
+> = {
+  file: { path: "submission_file_path", name: "submission_file_name", size: "submission_file_size_bytes" },
+  pdf: { path: "submission_pdf_path", name: "submission_pdf_name", size: "submission_pdf_size_bytes" },
+  image: { path: "submission_image_path", name: "submission_image_name", size: "submission_image_size_bytes" },
+  video: { path: "submission_video_path", name: "submission_video_name", size: "submission_video_size_bytes" },
+};
+
+export type TaskBoardResourceType = "image" | "video" | "pdf" | "code";
+export type TaskBoardResourceScope = "general" | "levels";
 
 export interface TaskBoardTaskRow {
   id: string;
@@ -38,15 +57,18 @@ export interface TaskBoardTaskRow {
   checklist_base: string[] | null;
   checklist_medium: string[] | null;
   checklist_hard: string[] | null;
-  submission_format: TaskBoardSubmissionFormat;
-  resource_youtube_url: string | null;
-  resource_link_url: string | null;
-  resource_link_label: string | null;
-  resource_pdf_url: string | null;
-  resource_image_url: string | null;
-  // Independent, per-task extra requirements layered on top of the fixed
-  // submission_format link/file requirement above -- both, one, or neither
-  // can be set. Neither set is the original, unchanged behavior.
+  // Replaces the old single, mutually-exclusive submission_format column --
+  // any combination of these 5 can be true, and at least one must be (see
+  // the task_board_tasks_has_a_submission_type CHECK constraint). Code and
+  // screenshots below are separate, always-optional extras layered on top.
+  requires_link: boolean;
+  requires_pdf: boolean;
+  requires_image: boolean;
+  requires_video: boolean;
+  requires_file: boolean;
+  // Custom label for the link input when requires_link is true; null falls
+  // back to a generic "Submission link" label.
+  submission_link_label: string | null;
   requires_code: boolean;
   requires_screenshots: boolean;
   is_active: boolean;
@@ -63,6 +85,15 @@ export interface TaskBoardSubmissionRow {
   submission_file_path: string | null;
   submission_file_name: string | null;
   submission_file_size_bytes: number | null;
+  submission_pdf_path: string | null;
+  submission_pdf_name: string | null;
+  submission_pdf_size_bytes: number | null;
+  submission_image_path: string | null;
+  submission_image_name: string | null;
+  submission_image_size_bytes: number | null;
+  submission_video_path: string | null;
+  submission_video_name: string | null;
+  submission_video_size_bytes: number | null;
   submission_note: string | null;
   // Pasted code/text, only meaningful when the task's requires_code is
   // true -- but stored whenever provided, regardless of that flag.
@@ -102,17 +133,45 @@ export type TaskBoardSubmissionPatch = Partial<
     | "submission_file_path"
     | "submission_file_name"
     | "submission_file_size_bytes"
+    | "submission_pdf_path"
+    | "submission_pdf_name"
+    | "submission_pdf_size_bytes"
+    | "submission_image_path"
+    | "submission_image_name"
+    | "submission_image_size_bytes"
+    | "submission_video_path"
+    | "submission_video_name"
+    | "submission_video_size_bytes"
     | "submission_note"
     | "submission_code"
     | "submitted_at"
   >
 >;
 
+// One row per admin-authored illustrative resource on a task -- any number
+// per task, including several of the same type, each independently scoped
+// to 'general' (always visible) or a specific subset of levels.
+export interface TaskBoardResourceRow {
+  id: string;
+  task_id: string;
+  type: TaskBoardResourceType;
+  label: string | null;
+  scope: TaskBoardResourceScope;
+  levels: TaskBoardLevel[] | null;
+  url: string | null;
+  code_content: string | null;
+  code_language: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
 const TASK_COLUMNS =
-  "id, order_index, title, title_ar, description, description_ar, checklist, start_at, end_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, submission_format, resource_youtube_url, resource_link_url, resource_link_label, resource_pdf_url, resource_image_url, requires_code, requires_screenshots, is_active";
+  "id, order_index, title, title_ar, description, description_ar, checklist, start_at, end_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, requires_link, requires_pdf, requires_image, requires_video, requires_file, submission_link_label, requires_code, requires_screenshots, is_active";
 
 const SUBMISSION_COLUMNS =
-  "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
+  "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_pdf_path, submission_pdf_name, submission_pdf_size_bytes, submission_image_path, submission_image_name, submission_image_size_bytes, submission_video_path, submission_video_name, submission_video_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
+
+const RESOURCE_COLUMNS = "id, task_id, type, label, scope, levels, url, code_content, code_language, sort_order, created_at";
 
 export async function getActiveTaskBoardTasks(): Promise<TaskBoardTaskRow[]> {
   const supabase = createAdminClient();
@@ -165,6 +224,29 @@ export async function getSubmissionFiles(submissionId: string): Promise<TaskBoar
 
   if (error || !data) return [];
   return data;
+}
+
+// Batched across every active task in one query, same convention as
+// getTaskCompletions() below -- resources are small, admin-authored, and
+// not sensitive, so the client filters by level itself (same fallback
+// pattern as descriptionForLevel/checklistForLevel in TaskBoardClient.tsx)
+// rather than this being computed per-viewer server-side.
+export async function getResourcesByTaskIds(taskIds: string[]): Promise<Record<string, TaskBoardResourceRow[]>> {
+  if (taskIds.length === 0) return {};
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("task_board_task_resources")
+    .select(RESOURCE_COLUMNS)
+    .in("task_id", taskIds)
+    .order("sort_order");
+
+  if (error || !data) return {};
+
+  const byTask: Record<string, TaskBoardResourceRow[]> = {};
+  for (const row of data) {
+    (byTask[row.task_id] ??= []).push(row);
+  }
+  return byTask;
 }
 
 export interface TaskCompletionAvatar {

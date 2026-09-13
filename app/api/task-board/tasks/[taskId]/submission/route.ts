@@ -4,6 +4,7 @@ import {
   getTaskBoardTaskById,
   taskOffersLevel,
   upsertOwnSubmission,
+  SUBMISSION_FILE_KIND_COLUMNS,
   type TaskBoardLevel,
   type TaskBoardSubmissionPatch,
 } from "@/lib/data/taskBoard";
@@ -18,6 +19,20 @@ const MAX_SCREENSHOT_SIZE_LABEL = "10 MB";
 const MAX_TOTAL_SCREENSHOT_BYTES = 50 * 1024 * 1024;
 const MAX_TOTAL_SCREENSHOT_BYTES_LABEL = "50 MB";
 const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp"];
+// Same allow-list style as screenshots -- checked against the browser-
+// reported MIME type (and, for PDF, the filename extension as a fallback,
+// since some browsers report generic types for less common documents).
+// Reused for both the submission's own PDF/image types below.
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+// Replaces the old single submission_format ternary: one entry per
+// requires_* flag, since any combination can now be true at once.
+const PRIMARY_FILE_KINDS = ["pdf", "image", "video", "file"] as const;
+type PrimaryFileKind = (typeof PRIMARY_FILE_KINDS)[number];
+
+function primaryFileFieldName(kind: PrimaryFileKind) {
+  return kind === "file" ? "file" : (`${kind}File` as const);
+}
 
 // Never 'reviewing' or 'approved' -- those are admin-only transitions
 // (claiming a submission for review, approving it). A student can only
@@ -109,15 +124,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
 
   // --- Branch 2: actual content submission (the modal's "Submit" button) ---
   //
-  // A link or a file, matching the task's fixed submission_format, plus an
-  // optional note. Always moves status to 'submitted' (guard against
+  // Whichever of link/pdf/image/video/file/code/screenshots the task
+  // requires, plus an optional note. Always moves status to 'submitted' (guard against
   // 'approved' still applies inside upsertOwnSubmission) -- a fresh
   // submission means any previous review context is stale, so it goes
   // back to the top of the review queue rather than staying wherever an
   // admin had it claimed.
   const formData = await request.formData();
   const link = formData.get("link");
-  const file = formData.get("file");
   const note = formData.get("note");
   const level = formData.get("level");
   const code = formData.get("code");
@@ -177,7 +191,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     return Response.json({ error: `Screenshots must total ${MAX_TOTAL_SCREENSHOT_BYTES_LABEL} or smaller.` }, { status: 400 });
   }
 
-  if (task.submission_format === "link") {
+  if (task.requires_link) {
     if (typeof link !== "string" || !link.trim()) {
       return Response.json({ error: "A link is required for this task." }, { status: 400 });
     }
@@ -187,44 +201,64 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
       return Response.json({ error: "Enter a valid URL." }, { status: 400 });
     }
     patch.submission_link = link.trim();
-  } else {
-    if (!(file instanceof File) || file.size === 0) {
-      return Response.json({ error: "A file is required for this task." }, { status: 400 });
+  }
+
+  // One independent check per true requires_* flag -- replacing the old
+  // single mutually-exclusive submission_format ternary, since any
+  // combination of pdf/image/video/file can now be required at once.
+  const primaryFiles: { kind: PrimaryFileKind; file: File }[] = [];
+  for (const kind of PRIMARY_FILE_KINDS) {
+    const required = kind === "pdf" ? task.requires_pdf : kind === "image" ? task.requires_image : kind === "video" ? task.requires_video : task.requires_file;
+    if (!required) continue;
+
+    const candidate = formData.get(primaryFileFieldName(kind));
+    if (!(candidate instanceof File) || candidate.size === 0) {
+      return Response.json({ error: `A ${kind === "file" ? "file" : kind} is required for this task.` }, { status: 400 });
     }
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    if (candidate.size > MAX_FILE_SIZE_BYTES) {
       return Response.json({ error: `File must be ${MAX_FILE_SIZE_LABEL} or smaller.` }, { status: 400 });
     }
+    if (kind === "pdf" && !(candidate.type === "application/pdf" || candidate.name.toLowerCase().endsWith(".pdf"))) {
+      return Response.json({ error: "File must be a PDF." }, { status: 400 });
+    }
+    if (kind === "image" && !ALLOWED_IMAGE_TYPES.includes(candidate.type)) {
+      return Response.json({ error: "Image must be JPG, PNG, or WEBP." }, { status: 400 });
+    }
+    if (kind === "video" && !candidate.type.toLowerCase().startsWith("video/")) {
+      return Response.json({ error: "File must be a video." }, { status: 400 });
+    }
+    primaryFiles.push({ kind, file: candidate });
   }
 
   // --- Uploads: all-or-nothing, and strictly before any DB write ---
   //
-  // Every object (the primary attachment, if this is a file-format task,
-  // plus every screenshot) is uploaded to storage first. If any single
-  // upload fails partway through, everything already uploaded in this
-  // batch is removed and the request fails before upsertOwnSubmission()
-  // ever runs -- so a failed submit can never leave the student's previous
-  // submission half-overwritten.
+  // Every object (every required primary file, plus every screenshot) is
+  // uploaded to storage first. If any single upload fails partway through,
+  // everything already uploaded in this batch is removed and the request
+  // fails before upsertOwnSubmission() ever runs -- so a failed submit can
+  // never leave the student's previous submission half-overwritten.
   const admin = createAdminClient();
   const uploadedPaths: string[] = [];
 
-  if (task.submission_format !== "link") {
-    const primaryFile = file as File;
+  for (const { kind, file: primaryFile } of primaryFiles) {
     const filename = sanitizeFilename(primaryFile.name || "upload");
     // Namespaced <task_id>/<student_id>/<file> -- the storage.objects RLS
     // policy keys off this exact path shape (folder segment [2] must equal
     // the caller's auth.uid()).
-    const path = `${taskId}/${studentId}/${Date.now()}-${filename}`;
+    const path = `${taskId}/${studentId}/${Date.now()}-${kind}-${filename}`;
     const buffer = Buffer.from(await primaryFile.arrayBuffer());
     const { error: uploadError } = await admin.storage
       .from(BUCKET)
       .upload(path, buffer, { contentType: primaryFile.type || "application/octet-stream", upsert: false });
     if (uploadError) {
+      await admin.storage.from(BUCKET).remove(uploadedPaths);
       return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
     }
     uploadedPaths.push(path);
-    patch.submission_file_path = path;
-    patch.submission_file_name = filename;
-    patch.submission_file_size_bytes = primaryFile.size;
+    const cols = SUBMISSION_FILE_KIND_COLUMNS[kind];
+    (patch as Record<string, unknown>)[cols.path] = path;
+    (patch as Record<string, unknown>)[cols.name] = filename;
+    (patch as Record<string, unknown>)[cols.size] = primaryFile.size;
   }
 
   const screenshotUploads: { path: string; name: string; size: number }[] = [];

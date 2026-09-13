@@ -1,9 +1,71 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ALLOWED_CODE_LANGUAGES } from "@/lib/taskBoardConstants";
 
-const SUBMISSION_FORMATS = ["link", "pdf", "image", "video", "file"] as const;
 const LEVEL_KEYS = ["base", "medium", "hard"] as const;
 type LevelKey = (typeof LEVEL_KEYS)[number];
+const RESOURCE_TYPES = ["image", "video", "pdf", "code"] as const;
+type ResourceType = (typeof RESOURCE_TYPES)[number];
+const RESOURCE_SCOPES = ["general", "levels"] as const;
+
+interface ParsedResource {
+  type: ResourceType;
+  label: string | null;
+  scope: "general" | "levels";
+  levels: LevelKey[] | null;
+  url: string | null;
+  code_content: string | null;
+  code_language: string | null;
+}
+
+// Mirrors the CHECK constraints on task_board_task_resources (scope/levels
+// agreement, content matching type) so a misconfigured resource gets a
+// clear field-level message instead of a raw constraint-violation 500.
+function parseResource(input: unknown, index: number): ParsedResource | { error: string } {
+  const r = (input ?? {}) as Record<string, unknown>;
+  const label = typeof r.label === "string" && r.label.trim() ? r.label.trim() : null;
+
+  if (typeof r.type !== "string" || !(RESOURCE_TYPES as readonly string[]).includes(r.type)) {
+    return { error: `Resource ${index + 1}: invalid type.` };
+  }
+  const type = r.type as ResourceType;
+
+  if (typeof r.scope !== "string" || !(RESOURCE_SCOPES as readonly string[]).includes(r.scope)) {
+    return { error: `Resource ${index + 1}: choose a scope (General or Specific levels).` };
+  }
+  const scope = r.scope as "general" | "levels";
+
+  let levels: LevelKey[] | null = null;
+  if (scope === "levels") {
+    const raw = Array.isArray(r.levels) ? r.levels : [];
+    const filtered = raw.filter((l): l is LevelKey => typeof l === "string" && (LEVEL_KEYS as readonly string[]).includes(l));
+    if (filtered.length === 0) {
+      return { error: `Resource ${index + 1}: pick at least one level.` };
+    }
+    levels = filtered;
+  }
+
+  if (type === "code") {
+    if (typeof r.codeContent !== "string" || !r.codeContent.trim()) {
+      return { error: `Resource ${index + 1}: code content is required.` };
+    }
+    const codeLanguage =
+      typeof r.codeLanguage === "string" && (ALLOWED_CODE_LANGUAGES as readonly string[]).includes(r.codeLanguage)
+        ? r.codeLanguage
+        : ALLOWED_CODE_LANGUAGES[0];
+    return { type, label, scope, levels, url: null, code_content: r.codeContent.trim().slice(0, 20_000), code_language: codeLanguage };
+  }
+
+  if (typeof r.url !== "string" || !r.url.trim()) {
+    return { error: `Resource ${index + 1}: a ${type} URL is required.` };
+  }
+  try {
+    new URL(r.url.trim());
+  } catch {
+    return { error: `Resource ${index + 1}: enter a valid URL.` };
+  }
+  return { type, label, scope, levels, url: r.url.trim(), code_content: null, code_language: null };
+}
 
 interface ParsedLevel {
   enabled: boolean;
@@ -43,9 +105,20 @@ export async function POST(request: Request) {
   if (typeof body.title !== "string" || !body.title.trim()) {
     return Response.json({ error: "Title is required." }, { status: 400 });
   }
-  if (typeof body.submissionFormat !== "string" || !(SUBMISSION_FORMATS as readonly string[]).includes(body.submissionFormat)) {
-    return Response.json({ error: "Invalid submission format." }, { status: 400 });
+
+  const requiresLink = body.requiresLink === true;
+  const requiresPdf = body.requiresPdf === true;
+  const requiresImage = body.requiresImage === true;
+  const requiresVideo = body.requiresVideo === true;
+  const requiresFile = body.requiresFile === true;
+  if (!requiresLink && !requiresPdf && !requiresImage && !requiresVideo && !requiresFile) {
+    return Response.json(
+      { error: "At least one submission type (Link, PDF, Image, Video, or File) must be required." },
+      { status: 400 },
+    );
   }
+  const submissionLinkLabel =
+    typeof body.submissionLinkLabel === "string" && body.submissionLinkLabel.trim() ? body.submissionLinkLabel.trim() : null;
 
   function parseDate(input: unknown, label: string): { value: string | null } | { error: string } {
     if (typeof input !== "string" || !input.trim()) return { value: null };
@@ -83,6 +156,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "At least one level (Base, Medium, or Hard) must be enabled." }, { status: 400 });
   }
 
+  const resourcesInput = Array.isArray(body.resources) ? body.resources : [];
+  const parsedResources: ParsedResource[] = [];
+  for (let i = 0; i < resourcesInput.length; i++) {
+    const result = parseResource(resourcesInput[i], i);
+    if ("error" in result) return Response.json({ error: result.error }, { status: 400 });
+    parsedResources.push(result);
+  }
+
   const supabase = createAdminClient();
 
   const { data: last } = await supabase
@@ -100,7 +181,12 @@ export async function POST(request: Request) {
       description: typeof body.description === "string" && body.description.trim() ? body.description.trim() : null,
       start_at: startAt,
       end_at: endAt,
-      submission_format: body.submissionFormat,
+      requires_link: requiresLink,
+      requires_pdf: requiresPdf,
+      requires_image: requiresImage,
+      requires_video: requiresVideo,
+      requires_file: requiresFile,
+      submission_link_label: submissionLinkLabel,
       requires_code: requiresCode,
       requires_screenshots: requiresScreenshots,
       points_base: parsedLevels.base.points,
@@ -117,5 +203,29 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !inserted) return Response.json({ error: "Could not create task." }, { status: 500 });
+
+  if (parsedResources.length > 0) {
+    const { error: resourcesError } = await supabase.from("task_board_task_resources").insert(
+      parsedResources.map((r, i) => ({
+        task_id: inserted.id,
+        type: r.type,
+        label: r.label,
+        scope: r.scope,
+        levels: r.levels,
+        url: r.url,
+        code_content: r.code_content,
+        code_language: r.code_language,
+        sort_order: i,
+      })),
+    );
+    // The task itself was created successfully; only the resources
+    // failed to attach. Surfaced as a warning alongside the created task
+    // rather than a hard failure, since there's no cross-table
+    // transaction here to roll the task creation back atomically.
+    if (resourcesError) {
+      return Response.json({ task: inserted, resourcesError: "Task created, but resources could not be saved." });
+    }
+  }
+
   return Response.json({ task: inserted });
 }

@@ -1,5 +1,5 @@
 import { TaskBoardClient } from "@/components/dashboard/TaskBoardClient";
-import { getActiveTaskBoardTasks, getStudentSubmissions, getTaskCompletions } from "@/lib/data/taskBoard";
+import { getActiveTaskBoardTasks, getStudentSubmissions, getTaskCompletions, getResourcesByTaskIds } from "@/lib/data/taskBoard";
 import { requireDeviceSession } from "@/lib/auth/device-session";
 
 // Same reasoning as app/dashboard/page.tsx: this reads with the
@@ -14,6 +14,14 @@ export default async function TaskBoardPage() {
     getStudentSubmissions(session.user.id),
     getTaskCompletions(),
   ]);
+  const resources = await getResourcesByTaskIds(tasks.map((t) => t.id));
 
-  return <TaskBoardClient initialTasks={tasks} initialSubmissions={submissions} initialCompletions={completions} />;
+  return (
+    <TaskBoardClient
+      initialTasks={tasks}
+      initialSubmissions={submissions}
+      initialCompletions={completions}
+      initialResources={resources}
+    />
+  );
 }
