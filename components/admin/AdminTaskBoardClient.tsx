@@ -27,6 +27,7 @@ interface AdminSubmissionRow {
   submission_file_name: string | null;
   submission_file_size_bytes: number | null;
   submission_note: string | null;
+  submission_code: string | null;
   admin_note: string | null;
   points_awarded: number | null;
   submitted_at: string | null;
@@ -196,6 +197,34 @@ function SubmissionReviewCard({
   const [busy, setBusy] = useState(false);
   const [sendingBack, setSendingBack] = useState(false);
   const [note, setNote] = useState("");
+  const [screenshots, setScreenshots] = useState<{ id: string; name: string; url: string | null }[]>([]);
+  const [codeCopied, setCodeCopied] = useState(false);
+
+  // Lazily fetched per-card, same convention as the "Open" file button
+  // below -- most submissions won't have screenshots, so this only costs a
+  // request for the ones that do (the endpoint returns an empty array
+  // instantly when there's nothing to fetch).
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/task-board/submissions/${row.id}/files`)
+      .then((r) => (r.ok ? r.json() : { files: [] }))
+      .then((data) => {
+        if (!cancelled) setScreenshots(data.files ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setScreenshots([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.id]);
+
+  async function copyCode() {
+    if (!row.submission_code) return;
+    await navigator.clipboard.writeText(row.submission_code);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 1500);
+  }
 
   async function openFile() {
     const res = await fetch(`/api/admin/task-board/submissions/${row.id}/file`);
@@ -300,6 +329,44 @@ function SubmissionReviewCard({
       </div>
 
       {row.submission_note && <p className="text-sm text-text-body">{row.submission_note}</p>}
+
+      {row.submission_code && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Code</span>
+            <button type="button" onClick={copyCode} className="text-xs font-semibold text-text-accent underline">
+              {codeCopied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre
+            dir="ltr"
+            className="max-h-64 overflow-auto rounded-card-inner bg-surface-sunken p-3 font-mono text-xs whitespace-pre-wrap text-text-body"
+          >
+            {row.submission_code}
+          </pre>
+        </div>
+      )}
+
+      {screenshots.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">
+            Screenshots ({screenshots.length})
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {screenshots.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => f.url && window.open(f.url, "_blank", "noopener,noreferrer")}
+                className="h-16 w-16 flex-none overflow-hidden rounded-control border border-border-hairline-strong bg-surface-sunken"
+                title={f.name}
+              >
+                {f.url && <img src={f.url} alt={f.name} className="h-full w-full object-cover" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Approve at level</span>

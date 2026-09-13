@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("task_board_submissions")
     .select(
-      "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at",
+      "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at",
     )
     .order("submitted_at", { ascending: true });
 

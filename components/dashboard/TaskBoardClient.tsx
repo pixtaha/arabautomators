@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Header } from "@/components/layout/Header";
 import type {
@@ -71,9 +71,18 @@ function offeredLevels(task: TaskBoardTaskRow): TaskBoardLevel[] {
   return levels;
 }
 
-function formatDue(dueAt: string | null) {
-  if (!dueAt) return null;
-  return `Due ${new Date(dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+function formatDue(endAt: string | null) {
+  if (!endAt) return null;
+  return `Due ${new Date(endAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
+function formatStart(startAt: string | null) {
+  if (!startAt) return null;
+  return `Starts ${new Date(startAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
+function isNotYetStarted(task: TaskBoardTaskRow) {
+  return Boolean(task.start_at) && new Date(task.start_at as string).getTime() > Date.now();
 }
 
 // Same mixed Arabic/English detection as SessionNotesCard.tsx: a text
@@ -331,10 +340,11 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                   const level = submission?.level ?? offeredLevels(task)[0];
                   const meta = LEVEL_META[level];
                   const locked = submission?.status === "approved";
+                  const notYetStarted = isNotYetStarted(task);
                   const points = locked
                     ? `${submission?.points_awarded ?? 0} pts earned`
                     : `${levelPoints(task, level)} pts`;
-                  const due = formatDue(task.due_at);
+                  const due = formatDue(task.end_at);
                   const completedBy = completions[task.id] ?? [];
                   // 'progress' alone just means the student placed it there
                   // themselves; admin_note only gets set by an admin's
@@ -345,13 +355,15 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                   return (
                     <div
                       key={task.id}
-                      draggable={!locked}
+                      draggable={!locked && !notYetStarted}
                       onDragStart={() => setDragTaskId(task.id)}
                       onDragEnd={() => setDragTaskId(null)}
                       onClick={() => setSelectedTaskId(task.id)}
                       style={{ borderLeft: `4px solid ${meta.borderVar}` }}
                       className={`flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card transition-transform ${
-                        locked ? "cursor-pointer" : "cursor-grab hover:-translate-y-0.5 active:cursor-grabbing"
+                        notYetStarted ? "opacity-60" : ""
+                      } ${
+                        locked || notYetStarted ? "cursor-pointer" : "cursor-grab hover:-translate-y-0.5 active:cursor-grabbing"
                       }`}
                     >
                       <div className="flex flex-wrap items-center gap-2">
@@ -361,15 +373,23 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                           <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
                           {meta.label}
                         </span>
-                        {sentBack && (
-                          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-aa-red-500/30 bg-surface-danger-soft px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-aa-red-700 uppercase">
-                            Needs changes
+                        {notYetStarted ? (
+                          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border-hairline-strong bg-surface-sunken px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-text-muted uppercase">
+                            {formatStart(task.start_at)}
                           </span>
-                        )}
-                        {locked && (
-                          <span className="ml-auto font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase">
-                            Locked
-                          </span>
+                        ) : (
+                          <>
+                            {sentBack && (
+                              <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-aa-red-500/30 bg-surface-danger-soft px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-aa-red-700 uppercase">
+                                Needs changes
+                              </span>
+                            )}
+                            {locked && (
+                              <span className="ml-auto font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase">
+                                Locked
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                       <div className="font-display text-base font-bold tracking-tight text-text-strong text-pretty">{task.title}</div>
@@ -428,19 +448,65 @@ function TaskDetailModal({
   const [link, setLink] = useState(submission?.submission_link ?? "");
   const [note, setNote] = useState(submission?.submission_note ?? "");
   const [file, setFile] = useState<File | null>(null);
+  const [code, setCode] = useState(submission?.submission_code ?? "");
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
+  const [existingScreenshots, setExistingScreenshots] = useState<
+    { id: string; name: string; url: string | null }[] | null
+  >(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const locked = submission?.status === "approved";
+  const notYetStarted = isNotYetStarted(task);
   const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
-  const canSubmit =
-    !busy && !locked && (task.submission_format === "link" ? link.trim().length > 0 : Boolean(file));
+  const primaryOk = task.submission_format === "link" ? link.trim().length > 0 : Boolean(file);
+  const codeOk = !task.requires_code || code.trim().length > 0;
+  const screenshotsOk = !task.requires_screenshots || screenshotFiles.length > 0;
+  const canSubmit = !busy && !locked && !notYetStarted && primaryOk && codeOk && screenshotsOk;
   const description = descriptionForLevel(task, level);
   const checklist = checklistForLevel(task, level);
 
+  // Previously submitted screenshots (if this task collects them) -- shown
+  // as a read-only gallery regardless of `locked`, purely informational:
+  // whatever the student picks in the "Add screenshots" picker below
+  // replaces this set on the next submit (see the API route's
+  // delete-then-replace behavior), it doesn't merge with it.
+  useEffect(() => {
+    if (!task.requires_screenshots || !submission) {
+      setExistingScreenshots([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/task-board/tasks/${task.id}/submission/files`)
+      .then((res) => (res.ok ? res.json() : { files: [] }))
+      .then((data) => {
+        if (!cancelled) setExistingScreenshots(data.files ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setExistingScreenshots([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [task.id, task.requires_screenshots, submission]);
+
+  const screenshotPreviews = useMemo(
+    () => screenshotFiles.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
+    [screenshotFiles],
+  );
+  useEffect(() => {
+    return () => {
+      screenshotPreviews.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [screenshotPreviews]);
+
+  function removeStagedScreenshot(index: number) {
+    setScreenshotFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function selectLevel(next: TaskBoardLevel) {
-    if (locked || next === level) return;
+    if (locked || notYetStarted || next === level) return;
     setLevel(next);
     const result = await postJson(task.id, { level: next });
     if (result.ok) onUpdated(result.submission);
@@ -449,7 +515,7 @@ function TaskDetailModal({
   async function handleSubmit() {
     setBusy(true);
     setLocalError(null);
-    setProgress(task.submission_format === "link" ? null : 0);
+    setProgress(task.submission_format !== "link" || screenshotFiles.length > 0 ? 0 : null);
 
     const formData = new FormData();
     formData.append("level", level);
@@ -459,6 +525,8 @@ function TaskDetailModal({
     } else if (file) {
       formData.append("file", file);
     }
+    if (task.requires_code) formData.append("code", code.trim());
+    for (const f of screenshotFiles) formData.append("files", f);
 
     const result = await postWithProgress(task.id, formData, setProgress);
     setBusy(false);
@@ -470,6 +538,7 @@ function TaskDetailModal({
     }
     onUpdated(result.submission);
     setFile(null);
+    setScreenshotFiles([]);
   }
 
   async function openFile() {
@@ -490,12 +559,27 @@ function TaskDetailModal({
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h2 className="font-display text-xl font-bold tracking-tight text-text-strong">{task.title}</h2>
-            {formatDue(task.due_at) && <span className="font-mono text-xs text-text-muted">{formatDue(task.due_at)}</span>}
+            {formatDue(task.end_at) && <span className="font-mono text-xs text-text-muted">{formatDue(task.end_at)}</span>}
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-lg text-text-faint hover:text-text-strong">
             ×
           </button>
         </div>
+
+        {notYetStarted && (
+          <div className="flex flex-col gap-1.5 rounded-card-inner border border-border-hairline-strong bg-surface-sunken p-4">
+            <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Not open yet</span>
+            <p className="text-sm text-text-body">
+              This task unlocks on{" "}
+              {new Date(task.start_at as string).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+              .
+            </p>
+          </div>
+        )}
 
         {sentBack && (
           <div className="flex flex-col gap-1.5 rounded-card-inner border border-aa-red-500/30 bg-surface-danger-soft p-4">
@@ -583,11 +667,11 @@ function TaskDetailModal({
                 <button
                   key={lv}
                   type="button"
-                  disabled={locked}
+                  disabled={locked || notYetStarted}
                   onClick={() => selectLevel(lv)}
                   className={`inline-flex h-11 items-center gap-2.5 rounded-full border-2 px-4 transition-colors ${
                     active ? `${meta.chipBg} ${meta.chipBorder} ${meta.chipText}` : "border-border-hairline bg-surface-card text-text-body"
-                  } ${locked ? "cursor-default opacity-70" : "cursor-pointer"}`}
+                  } ${locked || notYetStarted ? "cursor-default opacity-70" : "cursor-pointer"}`}
                 >
                   <span className={`h-2.5 w-2.5 rounded-full ${meta.dot}`} />
                   <span className="text-sm font-semibold">{meta.label}</span>
@@ -604,46 +688,134 @@ function TaskDetailModal({
             {task.submission_format !== "link" && <span className="font-mono text-xs text-text-faint">MAX 300 MB</span>}
           </div>
 
-          {locked ? (
-            <div className="flex items-center gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
-              <span className="text-aa-green-700">✓</span>
-              <span className="min-w-0 overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-aa-green-800">
-                {task.submission_format === "link" ? submission?.submission_link : submission?.submission_file_name}
-              </span>
+          {notYetStarted ? (
+            <div className="rounded-card-inner border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center text-sm text-text-muted">
+              Come back once this task opens to submit.
             </div>
-          ) : task.submission_format === "link" ? (
-            <input
-              type="text"
-              placeholder="https://"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 font-mono text-sm text-text-strong"
-            />
           ) : (
-            <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center">
-              <span className="text-sm font-semibold text-text-strong">{file ? file.name : "Choose a file to upload"}</span>
-              <span className="text-xs text-text-muted">{task.submission_format.toUpperCase()} · up to 300 MB</span>
-              <label className="mt-1 inline-flex h-8 cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
-                Choose file
-                <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-              </label>
-            </div>
-          )}
+            <>
+              {locked ? (
+                <div className="flex items-center gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
+                  <span className="text-aa-green-700">✓</span>
+                  <span className="min-w-0 overflow-hidden font-mono text-sm text-ellipsis whitespace-nowrap text-aa-green-800">
+                    {task.submission_format === "link" ? submission?.submission_link : submission?.submission_file_name}
+                  </span>
+                </div>
+              ) : task.submission_format === "link" ? (
+                <input
+                  type="text"
+                  placeholder="https://"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  className="h-11 rounded-control border border-border-hairline-strong bg-surface-card px-3.5 font-mono text-sm text-text-strong"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center">
+                  <span className="text-sm font-semibold text-text-strong">{file ? file.name : "Choose a file to upload"}</span>
+                  <span className="text-xs text-text-muted">{task.submission_format.toUpperCase()} · up to 300 MB</span>
+                  <label className="mt-1 inline-flex h-8 cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
+                    Choose file
+                    <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                  </label>
+                </div>
+              )}
 
-          {submission?.submission_file_name && !locked && (
-            <button type="button" onClick={openFile} className="self-start text-xs font-semibold text-text-accent underline">
-              View current file
-            </button>
-          )}
+              {submission?.submission_file_name && !locked && (
+                <button type="button" onClick={openFile} className="self-start text-xs font-semibold text-text-accent underline">
+                  View current file
+                </button>
+              )}
 
-          {!locked && (
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Optional note for the reviewer"
-              rows={2}
-              className="rounded-control border border-border-hairline bg-surface-card p-3 text-sm text-text-body"
-            />
+              {task.requires_code && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Code</span>
+                  {locked ? (
+                    <pre
+                      dir="ltr"
+                      className="max-h-48 overflow-auto rounded-card-inner bg-surface-sunken p-3 font-mono text-xs whitespace-pre-wrap text-text-body"
+                    >
+                      {submission?.submission_code || "—"}
+                    </pre>
+                  ) : (
+                    <textarea
+                      dir="ltr"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="Paste your code here"
+                      rows={6}
+                      className="rounded-control border border-border-hairline-strong bg-surface-card p-3 font-mono text-xs text-text-strong"
+                    />
+                  )}
+                </div>
+              )}
+
+              {task.requires_screenshots && (
+                <div className="flex flex-col gap-2">
+                  <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Screenshots</span>
+
+                  {existingScreenshots && existingScreenshots.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {existingScreenshots.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => f.url && window.open(f.url, "_blank", "noopener,noreferrer")}
+                          className="h-16 w-16 flex-none overflow-hidden rounded-control border border-border-hairline-strong bg-surface-sunken"
+                          title={f.name}
+                        >
+                          {f.url && <img src={f.url} alt={f.name} className="h-full w-full object-cover" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!locked && (
+                    <>
+                      <label className="inline-flex h-8 w-fit cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
+                        Add screenshots
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => setScreenshotFiles(Array.from(e.target.files ?? []).slice(0, 10))}
+                        />
+                      </label>
+                      {screenshotPreviews.length > 0 && (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {screenshotPreviews.map((p, i) => (
+                              <div key={i} className="relative h-16 w-16 flex-none overflow-hidden rounded-control border border-border-hairline-strong">
+                                <img src={p.url} alt={p.file.name} className="h-full w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => removeStagedScreenshot(i)}
+                                  aria-label="Remove"
+                                  className="absolute top-0 right-0 grid h-4 w-4 place-items-center rounded-bl bg-surface-ink/70 text-[10px] text-white"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <span className="text-xs text-text-faint">Submitting will replace all current screenshots with these.</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!locked && (
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Optional note for the reviewer"
+                  rows={2}
+                  className="rounded-control border border-border-hairline bg-surface-card p-3 text-sm text-text-body"
+                />
+              )}
+            </>
           )}
 
           {progress !== null && (
@@ -663,7 +835,7 @@ function TaskDetailModal({
           >
             Close
           </button>
-          {!locked && (
+          {!locked && !notYetStarted && (
             <button
               type="button"
               disabled={!canSubmit}

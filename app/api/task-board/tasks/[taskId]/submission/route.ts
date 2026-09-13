@@ -11,6 +11,13 @@ import {
 const BUCKET = "task-board-submissions";
 const MAX_FILE_SIZE_BYTES = 300 * 1024 * 1024;
 const MAX_FILE_SIZE_LABEL = "300 MB";
+const MAX_CODE_LENGTH = 50_000;
+const MAX_SCREENSHOT_COUNT = 10;
+const MAX_SCREENSHOT_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_SCREENSHOT_SIZE_LABEL = "10 MB";
+const MAX_TOTAL_SCREENSHOT_BYTES = 50 * 1024 * 1024;
+const MAX_TOTAL_SCREENSHOT_BYTES_LABEL = "50 MB";
+const ALLOWED_SCREENSHOT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 // Never 'reviewing' or 'approved' -- those are admin-only transitions
 // (claiming a submission for review, approving it). A student can only
@@ -35,6 +42,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
   const task = await getTaskBoardTaskById(taskId);
   if (!task || !task.is_active) {
     return Response.json({ error: "Task not found." }, { status: 404 });
+  }
+  if (task.start_at && new Date(task.start_at).getTime() > Date.now()) {
+    return Response.json({ error: "This task is not open yet." }, { status: 403 });
   }
 
   const studentId = session.user.id;
@@ -110,6 +120,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
   const file = formData.get("file");
   const note = formData.get("note");
   const level = formData.get("level");
+  const code = formData.get("code");
+  const screenshotFiles = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
 
   const patch: TaskBoardSubmissionPatch = {
     status: "submitted",
@@ -130,6 +142,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     patch.level = level as TaskBoardLevel;
   }
 
+  // --- Validate everything before uploading anything (see below for why) ---
+
+  const codeText = typeof code === "string" ? code.trim() : "";
+  if (task.requires_code && !codeText) {
+    return Response.json({ error: "Code is required for this task." }, { status: 400 });
+  }
+  if (codeText) {
+    patch.submission_code = codeText.slice(0, MAX_CODE_LENGTH);
+  }
+
+  // Every submit resends the whole payload -- there's no partial-update
+  // path for content fields (matching how the primary link/file below has
+  // always had to be resent on every resubmit too) -- so requiring fresh
+  // screenshots here, even on a resubmit that only changed e.g. the code
+  // text, is intentional, not an oversight.
+  if (task.requires_screenshots && screenshotFiles.length === 0) {
+    return Response.json({ error: "At least one screenshot is required for this task." }, { status: 400 });
+  }
+  if (screenshotFiles.length > MAX_SCREENSHOT_COUNT) {
+    return Response.json({ error: `Attach at most ${MAX_SCREENSHOT_COUNT} screenshots.` }, { status: 400 });
+  }
+  let totalScreenshotBytes = 0;
+  for (const f of screenshotFiles) {
+    if (!ALLOWED_SCREENSHOT_TYPES.includes(f.type)) {
+      return Response.json({ error: "Screenshots must be JPG, PNG, or WEBP." }, { status: 400 });
+    }
+    if (f.size > MAX_SCREENSHOT_SIZE_BYTES) {
+      return Response.json({ error: `Each screenshot must be ${MAX_SCREENSHOT_SIZE_LABEL} or smaller.` }, { status: 400 });
+    }
+    totalScreenshotBytes += f.size;
+  }
+  if (totalScreenshotBytes > MAX_TOTAL_SCREENSHOT_BYTES) {
+    return Response.json({ error: `Screenshots must total ${MAX_TOTAL_SCREENSHOT_BYTES_LABEL} or smaller.` }, { status: 400 });
+  }
+
   if (task.submission_format === "link") {
     if (typeof link !== "string" || !link.trim()) {
       return Response.json({ error: "A link is required for this task." }, { status: 400 });
@@ -140,45 +187,97 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
       return Response.json({ error: "Enter a valid URL." }, { status: 400 });
     }
     patch.submission_link = link.trim();
-
-    const result = await upsertOwnSubmission(taskId, studentId, patch);
-    if ("error" in result) return Response.json({ error: result.error }, { status: result.status });
-    return Response.json({ submission: result.submission });
+  } else {
+    if (!(file instanceof File) || file.size === 0) {
+      return Response.json({ error: "A file is required for this task." }, { status: 400 });
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return Response.json({ error: `File must be ${MAX_FILE_SIZE_LABEL} or smaller.` }, { status: 400 });
+    }
   }
 
-  if (!(file instanceof File) || file.size === 0) {
-    return Response.json({ error: "A file is required for this task." }, { status: 400 });
-  }
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return Response.json({ error: `File must be ${MAX_FILE_SIZE_LABEL} or smaller.` }, { status: 400 });
-  }
-
+  // --- Uploads: all-or-nothing, and strictly before any DB write ---
+  //
+  // Every object (the primary attachment, if this is a file-format task,
+  // plus every screenshot) is uploaded to storage first. If any single
+  // upload fails partway through, everything already uploaded in this
+  // batch is removed and the request fails before upsertOwnSubmission()
+  // ever runs -- so a failed submit can never leave the student's previous
+  // submission half-overwritten.
   const admin = createAdminClient();
-  const filename = sanitizeFilename(file.name || "upload");
-  // Namespaced <task_id>/<student_id>/<file> -- the storage.objects RLS
-  // policy from the Stage 1 migration keys off this exact path shape
-  // (folder segment [2] must equal the caller's auth.uid()).
-  const path = `${taskId}/${studentId}/${Date.now()}-${filename}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const uploadedPaths: string[] = [];
 
-  const { error: uploadError } = await admin.storage
-    .from(BUCKET)
-    .upload(path, buffer, { contentType: file.type || "application/octet-stream", upsert: false });
-
-  if (uploadError) {
-    return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
+  if (task.submission_format !== "link") {
+    const primaryFile = file as File;
+    const filename = sanitizeFilename(primaryFile.name || "upload");
+    // Namespaced <task_id>/<student_id>/<file> -- the storage.objects RLS
+    // policy keys off this exact path shape (folder segment [2] must equal
+    // the caller's auth.uid()).
+    const path = `${taskId}/${studentId}/${Date.now()}-${filename}`;
+    const buffer = Buffer.from(await primaryFile.arrayBuffer());
+    const { error: uploadError } = await admin.storage
+      .from(BUCKET)
+      .upload(path, buffer, { contentType: primaryFile.type || "application/octet-stream", upsert: false });
+    if (uploadError) {
+      return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
+    }
+    uploadedPaths.push(path);
+    patch.submission_file_path = path;
+    patch.submission_file_name = filename;
+    patch.submission_file_size_bytes = primaryFile.size;
   }
 
-  patch.submission_file_path = path;
-  patch.submission_file_name = filename;
-  patch.submission_file_size_bytes = file.size;
+  const screenshotUploads: { path: string; name: string; size: number }[] = [];
+  for (let i = 0; i < screenshotFiles.length; i++) {
+    const f = screenshotFiles[i];
+    const filename = sanitizeFilename(f.name || `screenshot-${i}`);
+    const path = `${taskId}/${studentId}/${Date.now()}-${i}-${filename}`;
+    const buffer = Buffer.from(await f.arrayBuffer());
+    const { error: uploadError } = await admin.storage
+      .from(BUCKET)
+      .upload(path, buffer, { contentType: f.type, upsert: false });
+    if (uploadError) {
+      await admin.storage.from(BUCKET).remove([...uploadedPaths, path]);
+      return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
+    }
+    uploadedPaths.push(path);
+    screenshotUploads.push({ path, name: filename, size: f.size });
+  }
 
   const result = await upsertOwnSubmission(taskId, studentId, patch);
   if ("error" in result) {
     // Compensating cleanup on DB failure, same convention as
     // app/api/admin/session-resources/route.ts.
-    await admin.storage.from(BUCKET).remove([path]);
+    await admin.storage.from(BUCKET).remove(uploadedPaths);
     return Response.json({ error: result.error }, { status: result.status });
   }
+
+  // Screenshots: resubmission always replaces the previous set -- delete
+  // old DB rows + storage objects, then insert whatever was uploaded this
+  // time. Runs unconditionally (not just when new screenshots were sent)
+  // so it also cleans up if a task's requires_screenshots was later turned
+  // off; harmless no-op when there was nothing to replace.
+  const { data: oldFiles } = await admin
+    .from("task_board_submission_files")
+    .select("id, file_path")
+    .eq("submission_id", result.submission.id);
+
+  if (oldFiles && oldFiles.length > 0) {
+    await admin.storage.from(BUCKET).remove(oldFiles.map((f) => f.file_path));
+    await admin.from("task_board_submission_files").delete().eq("submission_id", result.submission.id);
+  }
+
+  if (screenshotUploads.length > 0) {
+    await admin.from("task_board_submission_files").insert(
+      screenshotUploads.map((f, i) => ({
+        submission_id: result.submission.id,
+        file_path: f.path,
+        file_name: f.name,
+        file_size_bytes: f.size,
+        sort_order: i,
+      })),
+    );
+  }
+
   return Response.json({ submission: result.submission });
 }

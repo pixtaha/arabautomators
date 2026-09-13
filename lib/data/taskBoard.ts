@@ -16,7 +16,10 @@ export interface TaskBoardTaskRow {
   description_ar: string | null;
   // General checklist -- same fallback role as `description` above.
   checklist: string[];
-  due_at: string | null;
+  // null start_at = available immediately (matches today's only behavior,
+  // before this column existed). null end_at = no deadline.
+  start_at: string | null;
+  end_at: string | null;
   points_base: number | null;
   points_medium: number | null;
   points_hard: number | null;
@@ -41,6 +44,11 @@ export interface TaskBoardTaskRow {
   resource_link_label: string | null;
   resource_pdf_url: string | null;
   resource_image_url: string | null;
+  // Independent, per-task extra requirements layered on top of the fixed
+  // submission_format link/file requirement above -- both, one, or neither
+  // can be set. Neither set is the original, unchanged behavior.
+  requires_code: boolean;
+  requires_screenshots: boolean;
   is_active: boolean;
 }
 
@@ -56,6 +64,9 @@ export interface TaskBoardSubmissionRow {
   submission_file_name: string | null;
   submission_file_size_bytes: number | null;
   submission_note: string | null;
+  // Pasted code/text, only meaningful when the task's requires_code is
+  // true -- but stored whenever provided, regardless of that flag.
+  submission_code: string | null;
   // Set by an admin's "send back" action alongside status = 'progress'.
   // Distinguishes "sent back for changes" from a student's own ordinary
   // "in progress" placement (also status = 'progress', but admin_note is
@@ -69,6 +80,19 @@ export interface TaskBoardSubmissionRow {
   updated_at: string;
 }
 
+// One row per uploaded screenshot -- a submission can have zero to
+// MAX_SCREENSHOT_COUNT (see the submission route) of these, unlike the
+// single-value submission_link/submission_file_path fields above.
+export interface TaskBoardSubmissionFileRow {
+  id: string;
+  submission_id: string;
+  file_path: string;
+  file_name: string;
+  file_size_bytes: number | null;
+  sort_order: number;
+  created_at: string;
+}
+
 export type TaskBoardSubmissionPatch = Partial<
   Pick<
     TaskBoardSubmissionRow,
@@ -79,15 +103,16 @@ export type TaskBoardSubmissionPatch = Partial<
     | "submission_file_name"
     | "submission_file_size_bytes"
     | "submission_note"
+    | "submission_code"
     | "submitted_at"
   >
 >;
 
 const TASK_COLUMNS =
-  "id, order_index, title, title_ar, description, description_ar, checklist, due_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, submission_format, resource_youtube_url, resource_link_url, resource_link_label, resource_pdf_url, resource_image_url, is_active";
+  "id, order_index, title, title_ar, description, description_ar, checklist, start_at, end_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, submission_format, resource_youtube_url, resource_link_url, resource_link_label, resource_pdf_url, resource_image_url, requires_code, requires_screenshots, is_active";
 
 const SUBMISSION_COLUMNS =
-  "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
+  "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
 
 export async function getActiveTaskBoardTasks(): Promise<TaskBoardTaskRow[]> {
   const supabase = createAdminClient();
@@ -122,6 +147,21 @@ export function taskOffersLevel(
 export async function getStudentSubmissions(studentId: string): Promise<TaskBoardSubmissionRow[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("task_board_submissions").select(SUBMISSION_COLUMNS).eq("student_id", studentId);
+
+  if (error || !data) return [];
+  return data;
+}
+
+// Shared by both the student and admin "list screenshots" routes -- the
+// only difference between them is the auth/ownership check before calling
+// this, not the query itself.
+export async function getSubmissionFiles(submissionId: string): Promise<TaskBoardSubmissionFileRow[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("task_board_submission_files")
+    .select("id, submission_id, file_path, file_name, file_size_bytes, sort_order, created_at")
+    .eq("submission_id", submissionId)
+    .order("sort_order");
 
   if (error || !data) return [];
   return data;

@@ -41,8 +41,11 @@ function emptyLevels(): Record<LevelKey, LevelState> {
 export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [dueAt, setDueAt] = useState("");
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
   const [submissionFormat, setSubmissionFormat] = useState<SubmissionFormat>("file");
+  const [requiresCode, setRequiresCode] = useState(false);
+  const [requiresScreenshots, setRequiresScreenshots] = useState(false);
   const [levels, setLevels] = useState<Record<LevelKey, LevelState>>(emptyLevels());
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -76,11 +79,19 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
       }
     }
 
+    if (startAt && endAt && new Date(startAt).getTime() > new Date(endAt).getTime()) {
+      setFormError("Start date must be before end date.");
+      return;
+    }
+
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
-      dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+      startAt: startAt ? new Date(startAt).toISOString() : null,
+      endAt: endAt ? new Date(endAt).toISOString() : null,
       submissionFormat,
+      requiresCode,
+      requiresScreenshots,
       levels: Object.fromEntries(
         LEVEL_KEYS.map((key) => {
           const lv = levels[key];
@@ -117,8 +128,11 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
       setFormSuccess(`Created "${data.task?.title ?? title.trim()}".`);
       setTitle("");
       setDescription("");
-      setDueAt("");
+      setStartAt("");
+      setEndAt("");
       setSubmissionFormat("file");
+      setRequiresCode(false);
+      setRequiresScreenshots(false);
       setLevels(emptyLevels());
     } finally {
       setSubmitting(false);
@@ -163,14 +177,28 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input
-          id="task-due-at"
-          label="Due date (optional)"
+          id="task-start-at"
+          label="Start date (optional)"
           type="date"
-          value={dueAt}
-          onChange={(e) => setDueAt(e.target.value)}
+          value={startAt}
+          onChange={(e) => setStartAt(e.target.value)}
           disabled={submitting}
         />
+        <Input
+          id="task-end-at"
+          label="End date (optional)"
+          type="date"
+          value={endAt}
+          onChange={(e) => setEndAt(e.target.value)}
+          disabled={submitting}
+        />
+      </div>
+      <p className="-mt-2 text-xs text-text-faint">
+        Leave start date blank to make the task available immediately. Before the start date, students see the task
+        as &quot;starts on&quot; and can&apos;t attempt it yet.
+      </p>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="task-submission-format" className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
             Submission format
@@ -189,7 +217,34 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
             ))}
           </select>
         </div>
+
+        <div className="flex flex-col justify-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={requiresCode}
+              onChange={(e) => setRequiresCode(e.target.checked)}
+              disabled={submitting}
+              className="h-4 w-4 cursor-pointer"
+            />
+            <span className="text-sm font-semibold text-text-strong">Code required</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={requiresScreenshots}
+              onChange={(e) => setRequiresScreenshots(e.target.checked)}
+              disabled={submitting}
+              className="h-4 w-4 cursor-pointer"
+            />
+            <span className="text-sm font-semibold text-text-strong">Screenshots required</span>
+          </label>
+        </div>
       </div>
+      <p className="-mt-2 text-xs text-text-faint">
+        Both are optional and independent of the submission format above — a task can require a link/file plus
+        pasted code and/or screenshots, any combination.
+      </p>
 
       <div className="flex flex-col gap-3 border-t-2 border-border-hairline pt-4">
         <span className="font-mono text-[11px] font-bold tracking-widest text-text-muted uppercase">Levels</span>

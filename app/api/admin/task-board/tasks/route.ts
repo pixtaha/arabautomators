@@ -47,14 +47,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid submission format." }, { status: 400 });
   }
 
-  let dueAt: string | null = null;
-  if (typeof body.dueAt === "string" && body.dueAt.trim()) {
-    const parsed = new Date(body.dueAt);
-    if (Number.isNaN(parsed.getTime())) {
-      return Response.json({ error: "Invalid due date." }, { status: 400 });
-    }
-    dueAt = parsed.toISOString();
+  function parseDate(input: unknown, label: string): { value: string | null } | { error: string } {
+    if (typeof input !== "string" || !input.trim()) return { value: null };
+    const parsed = new Date(input);
+    if (Number.isNaN(parsed.getTime())) return { error: `Invalid ${label}.` };
+    return { value: parsed.toISOString() };
   }
+
+  const startAtResult = parseDate(body.startAt, "start date");
+  if ("error" in startAtResult) return Response.json({ error: startAtResult.error }, { status: 400 });
+  const endAtResult = parseDate(body.endAt, "end date");
+  if ("error" in endAtResult) return Response.json({ error: endAtResult.error }, { status: 400 });
+  const startAt = startAtResult.value;
+  const endAt = endAtResult.value;
+
+  if (startAt && endAt && new Date(startAt).getTime() > new Date(endAt).getTime()) {
+    return Response.json({ error: "Start date must be before end date." }, { status: 400 });
+  }
+
+  const requiresCode = body.requiresCode === true;
+  const requiresScreenshots = body.requiresScreenshots === true;
 
   const levelsInput = (body.levels ?? {}) as Record<string, unknown>;
   const parsedLevels: Record<LevelKey, ParsedLevel> = {} as Record<LevelKey, ParsedLevel>;
@@ -86,8 +98,11 @@ export async function POST(request: Request) {
       order_index: nextOrderIndex,
       title: body.title.trim(),
       description: typeof body.description === "string" && body.description.trim() ? body.description.trim() : null,
-      due_at: dueAt,
+      start_at: startAt,
+      end_at: endAt,
       submission_format: body.submissionFormat,
+      requires_code: requiresCode,
+      requires_screenshots: requiresScreenshots,
       points_base: parsedLevels.base.points,
       points_medium: parsedLevels.medium.points,
       points_hard: parsedLevels.hard.points,
