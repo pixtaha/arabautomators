@@ -16,6 +16,7 @@ export function Header() {
   const { user } = useSupabaseUser();
   const pathname = usePathname();
   const [hasPendingTask, setHasPendingTask] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const inDashboardArea = DASHBOARD_AREA_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -48,6 +49,26 @@ export function Header() {
     };
   }, [showDashboardLinks]);
 
+  // Same "don't reset on the way down" reasoning as hasPendingTask above --
+  // the render below is gated on `user && isAdmin`, so a stale `true` left
+  // over from a previous session has no visible effect once `user` is gone.
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    fetch("/api/auth/is-admin", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { isAdmin: false }))
+      .then((data) => {
+        if (!cancelled) setIsAdmin(Boolean(data.isAdmin));
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   return (
     <header className="sticky top-0 z-20 border-b border-border-hairline bg-surface-card/95 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex min-h-14 max-w-[1180px] items-center justify-between gap-4 px-4 py-2 sm:px-6 sm:py-3.5">
@@ -64,6 +85,11 @@ export function Header() {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-aa-red-500" />
                 </span>
               )}
+            </ButtonLink>
+          )}
+          {showDashboardLinks && (
+            <ButtonLink href="/dashboard/api-lab-docs" variant="ghost" size="md">
+              API Docs
             </ButtonLink>
           )}
           <ButtonLink href="/dashboard/tasks-leaderboard" variant="ghost" size="md">
@@ -83,6 +109,14 @@ export function Header() {
           <ButtonLink href="/help" variant="ghost" size="md">
             Help
           </ButtonLink>
+          {Boolean(user) && isAdmin && (
+            <Link
+              href="/admin"
+              className="inline-flex h-7 items-center whitespace-nowrap rounded-full bg-surface-ink px-3 text-[11px] font-semibold tracking-wide text-white uppercase transition-colors duration-150 hover:bg-aa-neutral-800 active:scale-[.985]"
+            >
+              Admin
+            </Link>
+          )}
           <AuthStatus />
         </nav>
         <nav aria-label="Mobile navigation" className="flex items-center gap-1.5 sm:hidden">
@@ -98,6 +132,14 @@ export function Header() {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-aa-red-500" />
                 </span>
               )}
+            </Link>
+          )}
+          {Boolean(user) && isAdmin && (
+            <Link
+              href="/admin"
+              className="inline-flex h-7 items-center whitespace-nowrap rounded-full bg-surface-ink px-3 text-[11px] font-semibold tracking-wide text-white uppercase transition-colors duration-150 hover:bg-aa-neutral-800 active:scale-[.985]"
+            >
+              Admin
             </Link>
           )}
           <AuthStatus />
