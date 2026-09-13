@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/Header";
@@ -17,8 +17,6 @@ import type { N8nWorkflowStatus } from "@/lib/data/n8nWorkflows";
 // Flip to false to disable the "Go to course" button again without touching its logic.
 const COURSE_ACCESS_ENABLED = true;
 
-const DEMO_PROGRESS_PERCENT = 15;
-
 export function DashboardClient({
   modules,
   firstSessionId,
@@ -32,12 +30,30 @@ export function DashboardClient({
 }) {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
+  const [modulesCompleted, setModulesCompleted] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
     }
   }, [loading, user, router]);
+
+  // session_video_parts (needed to work out module completion from real watch
+  // data) has RLS enabled with no policies, so it can't be queried from the
+  // browser client -- this goes through the same server route /profile uses.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    fetch("/api/profile/modules-progress")
+      .then((res) => res.json())
+      .then((data) => {
+        if (active) setModulesCompleted(data.modulesCompleted ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (loading || !user) {
     return (
@@ -56,6 +72,8 @@ export function DashboardClient({
   }
 
   const username = (user.user_metadata?.username as string | undefined) ?? user.email ?? "there";
+  const modulesTotal = modules.length;
+  const progressPercent = modulesTotal > 0 ? Math.round((modulesCompleted / modulesTotal) * 100) : 0;
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
@@ -73,14 +91,17 @@ export function DashboardClient({
               Hello, {username} 👋
             </h1>
             <p className="max-w-[60ch] text-sm leading-relaxed text-text-muted">
-              This is a preview of your course dashboard. Real modules, progress and rankings go
-              live once Round #01 starts on September 5, 2026.
+              Track your modules, progress and ranking here as you move through Round #01.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
             <div className="flex flex-col gap-6">
-              <ProgressCard percent={DEMO_PROGRESS_PERCENT} />
+              <ProgressCard
+                percent={progressPercent}
+                modulesCompleted={modulesCompleted}
+                modulesTotal={modulesTotal}
+              />
 
               <CourseModulesCard modules={modules} isAdmin={isAdmin} />
 

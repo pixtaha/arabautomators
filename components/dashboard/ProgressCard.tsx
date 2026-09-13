@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-export function ProgressCard({ percent }: { percent: number }) {
+export function ProgressCard({
+  percent,
+  modulesCompleted,
+  modulesTotal,
+}: {
+  percent: number;
+  modulesCompleted: number;
+  modulesTotal: number;
+}) {
   const [filled, setFilled] = useState(false);
 
   useEffect(() => {
@@ -12,15 +20,9 @@ export function ProgressCard({ percent }: { percent: number }) {
 
   return (
     <div className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-          Overall progress
-        </span>
-        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-text-muted">
-          <span className="animate-blink block h-1.5 w-1.5 rounded-full bg-text-faint" />
-          demo data
-        </span>
-      </div>
+      <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
+        Overall progress
+      </span>
 
       <div className="flex items-baseline gap-2">
         <span className="font-display text-[44px] leading-none font-extrabold tracking-tight text-text-strong">
@@ -37,7 +39,7 @@ export function ProgressCard({ percent }: { percent: number }) {
       </div>
 
       <p className="text-xs text-text-muted">
-        Demo data — will show your real progress once the course starts.
+        {modulesCompleted} / {modulesTotal} modules completed
       </p>
     </div>
   );
