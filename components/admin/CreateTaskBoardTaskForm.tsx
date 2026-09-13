@@ -86,7 +86,7 @@ async function uploadResourceFile(type: "image" | "pdf", file: File): Promise<{ 
 // resets itself after a successful create rather than closing -- creating
 // several tasks in a row (the expected pre-launch workflow) shouldn't
 // require reopening the form each time.
-export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) {
+export function CreateTaskBoardTaskForm({ onCancel, onCreated }: { onCancel: () => void; onCreated?: () => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startAt, setStartAt] = useState("");
@@ -263,6 +263,7 @@ export function CreateTaskBoardTaskForm({ onCancel }: { onCancel: () => void }) 
           ? `Created "${data.task?.title ?? title.trim()}", but: ${data.resourcesError}`
           : `Created "${data.task?.title ?? title.trim()}".`,
       );
+      onCreated?.();
       setTitle("");
       setDescription("");
       setStartAt("");

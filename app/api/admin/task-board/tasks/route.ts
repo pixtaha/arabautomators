@@ -89,6 +89,42 @@ function parseLevel(input: unknown): ParsedLevel | { error: string } {
   return { enabled: true, points: level.points, description, checklist: checklist.length > 0 ? checklist : null };
 }
 
+const TASK_LIST_COLUMNS =
+  "id, title, order_index, points_base, points_medium, points_hard, requires_link, requires_pdf, requires_image, requires_video, requires_file, requires_code, requires_screenshots, start_at, end_at, is_active";
+
+// Powers the Manage Tasks page's persistent task list -- every task
+// (not just is_active ones, since there's no archive/deactivate UI
+// anywhere yet), plus a pending-submission count per task. The count is
+// computed in JS from one bulk select rather than a SQL group-by, matching
+// this codebase's existing convention (see getTaskCompletions() in
+// lib/data/taskBoard.ts) of doing joins/aggregation in application code
+// since there's no generated-types setup for raw SQL here.
+export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createAdminClient();
+  const { data: tasks, error } = await supabase.from("task_board_tasks").select(TASK_LIST_COLUMNS).order("order_index");
+
+  if (error || !tasks) return Response.json({ error: "Could not load tasks." }, { status: 500 });
+
+  const taskIds = tasks.map((t) => t.id);
+  const pendingCountByTaskId = new Map<string, number>();
+  if (taskIds.length > 0) {
+    const { data: pendingRows } = await supabase
+      .from("task_board_submissions")
+      .select("task_id")
+      .in("task_id", taskIds)
+      .in("status", ["submitted", "reviewing"]);
+    for (const row of pendingRows ?? []) {
+      pendingCountByTaskId.set(row.task_id, (pendingCountByTaskId.get(row.task_id) ?? 0) + 1);
+    }
+  }
+
+  const result = tasks.map((t) => ({ ...t, pending_count: pendingCountByTaskId.get(t.id) ?? 0 }));
+  return Response.json({ tasks: result });
+}
+
 // Validates the same constraints the DB enforces (submission_format enum,
 // task_board_tasks_has_a_level -- at least one of points_base/medium/hard
 // set) before ever hitting the database, so a misconfigured create gets a

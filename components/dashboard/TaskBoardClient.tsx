@@ -125,17 +125,32 @@ function isNotYetStarted(task: TaskBoardTaskRow) {
   return Boolean(task.start_at) && new Date(task.start_at as string).getTime() > Date.now();
 }
 
-// Same mixed Arabic/English detection as SessionNotesCard.tsx: a text
-// counts as Arabic when Arabic-script characters outnumber Latin ones, so
-// admin-authored fields with embedded English terms (workflow/node names)
-// still get the right paragraph direction.
-const ARABIC_CHAR_RE = /[؀-ۿ]/g;
-const LATIN_CHAR_RE = /[A-Za-z]/g;
+// Same mixed Arabic/English detection as SessionNotesCard.tsx, but counted
+// per WORD rather than per character. A character-count comparison breaks
+// down on this app's task descriptions, which are Arabic prose heavily
+// larded with English API jargon and raw URLs (e.g. "استخدم GET
+// /v1/products مع Query Parameters: category=computers, in_stock=true,
+// sort=-rating") -- a single URL or a run of comma-separated params can
+// rack up far more Latin *characters* than the surrounding Arabic sentence
+// has, even though a human reads the whole thing as Arabic. Classifying by
+// whole words (a word counts as Arabic if it contains any Arabic
+// character at all) tracks how the paragraph actually reads much more
+// reliably than raw character counts do.
+const ARABIC_CHAR_RE = /[؀-ۿ]/;
+const LATIN_CHAR_RE = /[A-Za-z]/;
 
 function isArabicText(text: string) {
-  const arabicCount = text.match(ARABIC_CHAR_RE)?.length ?? 0;
-  const latinCount = text.match(LATIN_CHAR_RE)?.length ?? 0;
-  return arabicCount > latinCount;
+  const words = text.split(/\s+/).filter(Boolean);
+  let arabicWords = 0;
+  let latinWords = 0;
+  for (const word of words) {
+    if (ARABIC_CHAR_RE.test(word)) arabicWords++;
+    else if (LATIN_CHAR_RE.test(word)) latinWords++;
+  }
+  // Ties resolve to Arabic, not Latin -- this platform's content is
+  // Arabic-first with English technical terms mixed in, so an even split
+  // should still read as an Arabic paragraph rather than default to LTR.
+  return arabicWords >= latinWords;
 }
 
 // Levels are genuinely different scope, not just a point multiplier on
@@ -434,7 +449,12 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                           </>
                         )}
                       </div>
-                      <div className="font-display text-base font-bold tracking-tight text-text-strong text-pretty">{task.title}</div>
+                      <div
+                        dir={isArabicText(task.title) ? "rtl" : "ltr"}
+                        className="font-display text-base font-bold tracking-tight text-text-strong text-pretty"
+                      >
+                        {task.title}
+                      </div>
                       {completedBy.length > 0 && (
                         <div className="flex items-center gap-2">
                           <AvatarStack people={completedBy} />
@@ -606,7 +626,12 @@ function TaskDetailModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-xl font-bold tracking-tight text-text-strong">{task.title}</h2>
+            <h2
+              dir={isArabicText(task.title) ? "rtl" : "ltr"}
+              className="font-display text-xl font-bold tracking-tight text-text-strong"
+            >
+              {task.title}
+            </h2>
             {formatDue(task.end_at) && <span className="font-mono text-xs text-text-muted">{formatDue(task.end_at)}</span>}
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="text-lg text-text-faint hover:text-text-strong">
