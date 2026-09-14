@@ -83,3 +83,25 @@ export function cairoDateStringToUtcInstant(dateStr: string, endOfDay = false): 
   const nextStartInstant = cairoStartOfDayInstant(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate());
   return new Date(nextStartInstant - 1).toISOString();
 }
+
+/**
+ * Reverse of `cairoDateStringToUtcInstant`: given a stored UTC ISO instant,
+ * returns the "YYYY-MM-DD" calendar date it falls on in Cairo local time --
+ * used to seed a task edit form's <input type="date"> values. Naively
+ * slicing the instant's own UTC date (`iso.slice(0, 10)`) would be wrong
+ * whenever Cairo's offset shifts the calendar day relative to UTC -- exactly
+ * the case for start_at, which is stored as Cairo midnight (e.g.
+ * "2026-09-12T22:00:00.000Z" for "Sep 13 Cairo" during DST).
+ */
+export function utcInstantToCairoDateString(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CAIRO_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(iso));
+
+  const map: Record<string, string> = {};
+  for (const part of parts) map[part.type] = part.value;
+  return `${map.year}-${map.month}-${map.day}`;
+}

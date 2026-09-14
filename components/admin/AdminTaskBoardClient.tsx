@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { CreateTaskBoardTaskForm } from "@/components/admin/CreateTaskBoardTaskForm";
+import { CreateTaskBoardTaskForm, type TaskBoardTaskDetail } from "@/components/admin/CreateTaskBoardTaskForm";
 
 type Level = "base" | "medium" | "hard";
 
@@ -64,13 +64,19 @@ function formatTaskDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Distinguishes "form closed" from "creating a brand new task" from
+// "editing task X" as one piece of state, rather than a boolean plus a
+// separately-tracked task id that could disagree with each other.
+type FormMode = { type: "closed" } | { type: "create" } | { type: "edit"; task: TaskBoardTaskDetail };
+
 // Mirrors AdminTaskBoardSubmissionsClient.tsx's own page shape (Header/
 // Footer/eyebrow/h1/intro pattern) -- this page and that one are now the
 // two halves of what used to be a single combined page: this one for
 // creating and seeing what tasks exist, that one for reviewing what
 // students have submitted against them.
 export function AdminTaskBoardClient() {
-  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [formMode, setFormMode] = useState<FormMode>({ type: "closed" });
+  const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskListRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +90,21 @@ export function AdminTaskBoardClient() {
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+
+  async function openEditForm(taskId: string) {
+    setEditLoadError(null);
+    try {
+      const res = await fetch(`/api/admin/task-board/tasks/${taskId}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.task) {
+        setEditLoadError("Could not load task for editing.");
+        return;
+      }
+      setFormMode({ type: "edit", task: { ...data.task, resources: data.resources ?? [] } });
+    } catch {
+      setEditLoadError("Could not load task for editing.");
+    }
+  }
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-surface-page font-body text-text-body">
@@ -105,21 +126,35 @@ export function AdminTaskBoardClient() {
           </div>
 
           {error && <p className="text-xs font-medium text-aa-red-700">{error}</p>}
+          {editLoadError && <p className="text-xs font-medium text-aa-red-700">{editLoadError}</p>}
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[11px] font-bold tracking-widest text-text-strong uppercase">
-                {showCreateTask ? "New task" : "Tasks"}
+                {formMode.type === "edit" ? "Edit task" : formMode.type === "create" ? "New task" : "Tasks"}
               </span>
               <button
                 type="button"
-                onClick={() => setShowCreateTask((v) => !v)}
+                onClick={() => setFormMode((m) => (m.type === "closed" ? { type: "create" } : { type: "closed" }))}
                 className="cursor-pointer text-xs font-semibold text-text-accent underline"
               >
-                {showCreateTask ? "Close" : "+ Create new task"}
+                {formMode.type === "closed" ? "+ Create new task" : "Close"}
               </button>
             </div>
-            {showCreateTask && <CreateTaskBoardTaskForm onCancel={() => setShowCreateTask(false)} onCreated={loadTasks} />}
+            {formMode.type === "create" && (
+              <CreateTaskBoardTaskForm onCancel={() => setFormMode({ type: "closed" })} onSaved={loadTasks} />
+            )}
+            {formMode.type === "edit" && (
+              <CreateTaskBoardTaskForm
+                key={formMode.task.id}
+                initialTask={formMode.task}
+                onCancel={() => setFormMode({ type: "closed" })}
+                onSaved={() => {
+                  setFormMode({ type: "closed" });
+                  loadTasks();
+                }}
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-3 border-t-2 border-border-hairline pt-8">
@@ -133,7 +168,7 @@ export function AdminTaskBoardClient() {
             ) : (
               <div className="flex flex-col gap-3">
                 {tasks.map((task) => (
-                  <TaskListCard key={task.id} task={task} />
+                  <TaskListCard key={task.id} task={task} onEdit={openEditForm} />
                 ))}
               </div>
             )}
@@ -146,7 +181,7 @@ export function AdminTaskBoardClient() {
   );
 }
 
-function TaskListCard({ task }: { task: TaskListRow }) {
+function TaskListCard({ task, onEdit }: { task: TaskListRow; onEdit: (taskId: string) => void }) {
   const levels = offeredLevels(task);
   const requirements = REQUIREMENT_FLAGS.filter((f) => task[f.key]);
   const start = formatTaskDate(task.start_at);
@@ -156,13 +191,22 @@ function TaskListCard({ task }: { task: TaskListRow }) {
     <div className="flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <span className="text-sm font-semibold text-text-strong">{task.title}</span>
-        <span
-          className={`flex-none rounded-full px-2.5 py-1 font-mono text-[11px] font-bold ${
-            task.pending_count > 0 ? "bg-surface-accent-soft text-aa-amber-700" : "bg-surface-sunken text-text-muted"
-          }`}
-        >
-          {task.pending_count} pending
-        </span>
+        <div className="flex flex-none items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onEdit(task.id)}
+            className="cursor-pointer text-xs font-semibold text-text-accent underline"
+          >
+            Edit
+          </button>
+          <span
+            className={`rounded-full px-2.5 py-1 font-mono text-[11px] font-bold ${
+              task.pending_count > 0 ? "bg-surface-accent-soft text-aa-amber-700" : "bg-surface-sunken text-text-muted"
+            }`}
+          >
+            {task.pending_count} pending
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5">

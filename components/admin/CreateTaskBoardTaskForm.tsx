@@ -4,7 +4,8 @@ import { FormEvent, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ALLOWED_CODE_LANGUAGES } from "@/lib/taskBoardConstants";
-import { cairoDateStringToUtcInstant } from "@/lib/dateHelpers";
+import { cairoDateStringToUtcInstant, utcInstantToCairoDateString } from "@/lib/dateHelpers";
+import type { TaskBoardResourceRow, TaskBoardTaskRow } from "@/lib/data/taskBoard";
 
 type LevelKey = "base" | "medium" | "hard";
 
@@ -24,6 +25,35 @@ function emptyLevel(enabled: boolean): LevelState {
 
 function emptyLevels(): Record<LevelKey, LevelState> {
   return { base: emptyLevel(true), medium: emptyLevel(false), hard: emptyLevel(false) };
+}
+
+// Full task detail, as returned by GET /api/admin/task-board/tasks/[taskId]
+// -- every column the create/edit form can seed from, plus that task's
+// current resources. Exported so AdminTaskBoardClient.tsx can type the
+// task it fetched before opening this form in edit mode.
+export type TaskBoardTaskDetail = TaskBoardTaskRow & { resources: TaskBoardResourceRow[] };
+
+function levelsFromTask(task: TaskBoardTaskDetail): Record<LevelKey, LevelState> {
+  return {
+    base: {
+      enabled: task.points_base !== null,
+      points: task.points_base !== null ? String(task.points_base) : "",
+      description: task.description_base ?? "",
+      checklist: (task.checklist_base ?? []).join("\n"),
+    },
+    medium: {
+      enabled: task.points_medium !== null,
+      points: task.points_medium !== null ? String(task.points_medium) : "",
+      description: task.description_medium ?? "",
+      checklist: (task.checklist_medium ?? []).join("\n"),
+    },
+    hard: {
+      enabled: task.points_hard !== null,
+      points: task.points_hard !== null ? String(task.points_hard) : "",
+      description: task.description_hard ?? "",
+      checklist: (task.checklist_hard ?? []).join("\n"),
+    },
+  };
 }
 
 type ResourceType = "image" | "video" | "pdf" | "code";
@@ -67,6 +97,30 @@ function emptyResource(): ResourceDraft {
   };
 }
 
+// Seeds a draft from an existing resource row when opening the edit form.
+// The row's own id is deliberately not carried into the draft: saving an
+// edit always deletes every existing resource row for the task and
+// reinserts whatever's in `resources` at submit time (see the PATCH route),
+// so nothing downstream ever needs to know which draft came from which row
+// -- the local `key` above already gives React everything it needs for list
+// reconciliation.
+function resourceFromRow(row: TaskBoardResourceRow): ResourceDraft {
+  resourceKeySeq += 1;
+  return {
+    key: `resource-${resourceKeySeq}`,
+    type: row.type,
+    label: row.label ?? "",
+    scope: row.scope,
+    levels: row.levels ?? [],
+    url: row.type === "code" ? "" : (row.url ?? ""),
+    codeContent: row.type === "code" ? (row.code_content ?? "") : "",
+    codeLanguage: row.code_language ?? ALLOWED_CODE_LANGUAGES[0],
+    uploading: false,
+    uploadedFileName: row.type === "image" || row.type === "pdf" ? "(existing file)" : null,
+    uploadError: null,
+  };
+}
+
 // Decoupled from task creation: an image/pdf resource file is uploaded
 // here the moment it's picked, and the resource draft just carries back
 // the resulting public URL -- the main create-task request stays plain
@@ -86,21 +140,32 @@ async function uploadResourceFile(type: "image" | "pdf", file: File): Promise<{ 
 // resets itself after a successful create rather than closing -- creating
 // several tasks in a row (the expected pre-launch workflow) shouldn't
 // require reopening the form each time.
-export function CreateTaskBoardTaskForm({ onCancel, onCreated }: { onCancel: () => void; onCreated?: () => void }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-  const [requiresLink, setRequiresLink] = useState(false);
-  const [requiresPdf, setRequiresPdf] = useState(false);
-  const [requiresImage, setRequiresImage] = useState(false);
-  const [requiresVideo, setRequiresVideo] = useState(false);
-  const [requiresFile, setRequiresFile] = useState(true);
-  const [submissionLinkLabel, setSubmissionLinkLabel] = useState("");
-  const [requiresCode, setRequiresCode] = useState(false);
-  const [requiresScreenshots, setRequiresScreenshots] = useState(false);
-  const [levels, setLevels] = useState<Record<LevelKey, LevelState>>(emptyLevels());
-  const [resources, setResources] = useState<ResourceDraft[]>([]);
+export function CreateTaskBoardTaskForm({
+  onCancel,
+  onSaved,
+  initialTask,
+}: {
+  onCancel: () => void;
+  onSaved?: () => void;
+  initialTask?: TaskBoardTaskDetail;
+}) {
+  const isEdit = initialTask !== undefined;
+  const [title, setTitle] = useState(() => initialTask?.title ?? "");
+  const [description, setDescription] = useState(() => initialTask?.description ?? "");
+  const [startAt, setStartAt] = useState(() => (initialTask?.start_at ? utcInstantToCairoDateString(initialTask.start_at) : ""));
+  const [endAt, setEndAt] = useState(() => (initialTask?.end_at ? utcInstantToCairoDateString(initialTask.end_at) : ""));
+  const [requiresLink, setRequiresLink] = useState(() => initialTask?.requires_link ?? false);
+  const [requiresPdf, setRequiresPdf] = useState(() => initialTask?.requires_pdf ?? false);
+  const [requiresImage, setRequiresImage] = useState(() => initialTask?.requires_image ?? false);
+  const [requiresVideo, setRequiresVideo] = useState(() => initialTask?.requires_video ?? false);
+  const [requiresFile, setRequiresFile] = useState(() => initialTask?.requires_file ?? true);
+  const [submissionLinkLabel, setSubmissionLinkLabel] = useState(() => initialTask?.submission_link_label ?? "");
+  const [requiresCode, setRequiresCode] = useState(() => initialTask?.requires_code ?? false);
+  const [requiresScreenshots, setRequiresScreenshots] = useState(() => initialTask?.requires_screenshots ?? false);
+  const [levels, setLevels] = useState<Record<LevelKey, LevelState>>(() =>
+    initialTask ? levelsFromTask(initialTask) : emptyLevels(),
+  );
+  const [resources, setResources] = useState<ResourceDraft[]>(() => initialTask?.resources.map(resourceFromRow) ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -248,36 +313,48 @@ export function CreateTaskBoardTaskForm({ onCancel, onCreated }: { onCancel: () 
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/admin/task-board/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        initialTask ? `/api/admin/task-board/tasks/${initialTask.id}` : "/api/admin/task-board/tasks",
+        {
+          method: initialTask ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setFormError(data?.error ?? "Could not create task.");
+        setFormError(data?.error ?? (isEdit ? "Could not save task." : "Could not create task."));
         return;
       }
+      const verb = isEdit ? "Saved" : "Created";
       setFormSuccess(
         data.resourcesError
-          ? `Created "${data.task?.title ?? title.trim()}", but: ${data.resourcesError}`
-          : `Created "${data.task?.title ?? title.trim()}".`,
+          ? `${verb} "${data.task?.title ?? title.trim()}", but: ${data.resourcesError}`
+          : `${verb} "${data.task?.title ?? title.trim()}".`,
       );
-      onCreated?.();
-      setTitle("");
-      setDescription("");
-      setStartAt("");
-      setEndAt("");
-      setRequiresLink(false);
-      setRequiresPdf(false);
-      setRequiresImage(false);
-      setRequiresVideo(false);
-      setRequiresFile(true);
-      setSubmissionLinkLabel("");
-      setRequiresCode(false);
-      setRequiresScreenshots(false);
-      setLevels(emptyLevels());
-      setResources([]);
+      onSaved?.();
+      // Create resets to blank so the admin can immediately start the next
+      // task without reopening the form. Edit deliberately does not: the
+      // parent closes the form on a successful save (see
+      // AdminTaskBoardClient.tsx), so there's nothing left to reset in
+      // practice, and blanking a just-saved task's own fields would read as
+      // data loss if that parent behavior ever changed.
+      if (!isEdit) {
+        setTitle("");
+        setDescription("");
+        setStartAt("");
+        setEndAt("");
+        setRequiresLink(false);
+        setRequiresPdf(false);
+        setRequiresImage(false);
+        setRequiresVideo(false);
+        setRequiresFile(true);
+        setSubmissionLinkLabel("");
+        setRequiresCode(false);
+        setRequiresScreenshots(false);
+        setLevels(emptyLevels());
+        setResources([]);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -289,7 +366,7 @@ export function CreateTaskBoardTaskForm({ onCancel, onCreated }: { onCancel: () 
       className="flex flex-col gap-4 rounded-card border border-border-hairline bg-surface-card p-6 shadow-card"
     >
       <div>
-        <h3 className="font-display text-base font-bold text-text-strong">New task</h3>
+        <h3 className="font-display text-base font-bold text-text-strong">{isEdit ? "Edit task" : "New task"}</h3>
         <p className="mt-1 text-sm text-text-muted">
           At least one level must be enabled — that&apos;s what students will be able to attempt.
         </p>
@@ -679,7 +756,7 @@ export function CreateTaskBoardTaskForm({ onCancel, onCreated }: { onCancel: () 
           Close
         </button>
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating…" : "Create task"}
+          {isEdit ? (submitting ? "Saving…" : "Save changes") : submitting ? "Creating…" : "Create task"}
         </Button>
       </div>
     </form>
