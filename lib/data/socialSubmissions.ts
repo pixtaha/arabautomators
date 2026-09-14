@@ -66,10 +66,13 @@ export async function getStudentSocialSubmissions(studentId: string): Promise<So
  * upsertOwnSubmission() in lib/data/taskBoard.ts. A fresh submission (no
  * existing row for this window/student -- the unique (window_id,
  * student_id) constraint guarantees at most one) always inserts as
- * 'pending'. An existing row can only be resubmitted while it's
- * 'sent_back' -- guarded atomically via `.eq("status", "sent_back")` on the
- * UPDATE itself so a request can never slip through against a row that's
- * already 'pending' or 'approved'.
+ * 'pending'. An existing row can be resubmitted regardless of its current
+ * status, including 'approved' -- flipping status away from 'approved'
+ * fires the revoke_social_points_on_status_change trigger, which removes
+ * the now-stale points_ledger row. Resubmitting always resets status to
+ * 'pending' and clears every review field (admin_comment, points_awarded,
+ * reviewed_by, reviewed_at), since a fresh link means any prior review no
+ * longer applies.
  */
 export async function upsertOwnSocialSubmission(
   windowId: string,
@@ -80,29 +83,22 @@ export async function upsertOwnSocialSubmission(
 
   const { data: updated, error: updateError } = await admin
     .from("social_submissions")
-    .update({ post_url: postUrl, status: "pending", admin_comment: null, updated_at: new Date().toISOString() })
+    .update({
+      post_url: postUrl,
+      status: "pending",
+      admin_comment: null,
+      points_awarded: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("window_id", windowId)
     .eq("student_id", studentId)
-    .eq("status", "sent_back")
     .select(SUBMISSION_COLUMNS)
     .maybeSingle();
 
   if (updateError) return { error: "Could not update submission.", status: 500 };
   if (updated) return { submission: updated };
-
-  const { data: existing } = await admin
-    .from("social_submissions")
-    .select("id")
-    .eq("window_id", windowId)
-    .eq("student_id", studentId)
-    .maybeSingle();
-
-  if (existing) {
-    // A row exists but the guarded UPDATE above touched nothing -- the only
-    // way that happens is the status filter excluded it, i.e. it's already
-    // 'pending' (awaiting review) or 'approved' (locked).
-    return { error: "You already have a submission for this window.", status: 409 };
-  }
 
   const { data: inserted, error: insertError } = await admin
     .from("social_submissions")

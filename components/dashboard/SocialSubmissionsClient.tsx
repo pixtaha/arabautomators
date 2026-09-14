@@ -96,11 +96,11 @@ function WindowCard({
   submission: SocialSubmissionRow | null;
   onUpdated: (submission: SocialSubmissionRow) => void;
 }) {
-  const [url, setUrl] = useState(submission?.status === "sent_back" ? submission.post_url : "");
+  const [editing, setEditing] = useState(!submission || submission.status === "sent_back");
+  const [url, setUrl] = useState(submission?.post_url ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const showForm = !submission || submission.status === "sent_back";
   const canSubmit = !busy && url.trim().length > 0 && isValidUrl(url.trim());
 
   async function submit() {
@@ -117,7 +117,15 @@ function WindowCard({
       setError(data?.error ?? "Could not submit.");
       return;
     }
+    setEditing(false);
     onUpdated(data.submission);
+  }
+
+  function cancelEdit() {
+    if (!submission) return;
+    setEditing(false);
+    setUrl(submission.post_url);
+    setError(null);
   }
 
   return (
@@ -131,22 +139,63 @@ function WindowCard({
         )}
       </div>
 
-      {showForm ? (
-        <>
-          {submission?.status === "sent_back" && (
-            <div className="flex flex-col gap-1.5 rounded-card-inner border border-aa-red-500/30 bg-surface-danger-soft p-4">
-              <span className="font-mono text-[11px] font-bold tracking-widest text-aa-red-700 uppercase">Sent back</span>
-              {submission.admin_comment && (
-                <p
-                  dir={isArabicText(submission.admin_comment) ? "rtl" : "ltr"}
-                  className="text-sm text-aa-red-700 text-pretty"
-                >
-                  {submission.admin_comment}
-                </p>
-              )}
-            </div>
+      {submission?.status === "pending" && (
+        <div className="flex items-center justify-between gap-3 rounded-card-inner bg-surface-sunken px-4 py-3">
+          <span className="text-sm text-text-muted">Waiting for review</span>
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="flex-none text-xs font-semibold text-text-accent underline"
+            >
+              Edit
+            </button>
           )}
+        </div>
+      )}
 
+      {submission?.status === "approved" && (
+        <div className="flex items-center justify-between gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-aa-green-800">
+            <span className="text-aa-green-700">✓</span>
+            Approved · {submission.points_awarded ?? 0} pts
+          </span>
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="flex-none text-xs font-semibold text-aa-green-800 underline"
+            >
+              Resubmit
+            </button>
+          )}
+        </div>
+      )}
+
+      {submission?.status === "sent_back" && (
+        <div className="flex flex-col gap-1.5 rounded-card-inner border border-aa-red-500/30 bg-surface-danger-soft p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-mono text-[11px] font-bold tracking-widest text-aa-red-700 uppercase">Sent back</span>
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="flex-none text-xs font-semibold text-aa-red-700 underline"
+              >
+                Resubmit
+              </button>
+            )}
+          </div>
+          {submission.admin_comment && (
+            <p dir={isArabicText(submission.admin_comment) ? "rtl" : "ltr"} className="text-sm text-aa-red-700 text-pretty">
+              {submission.admin_comment}
+            </p>
+          )}
+        </div>
+      )}
+
+      {editing && (
+        <>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-semibold text-text-strong">Post URL</span>
             <input
@@ -160,22 +209,26 @@ function WindowCard({
 
           {error && <p className="text-sm text-aa-red-700">{error}</p>}
 
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={submit}
-            className="inline-flex h-10 w-fit items-center rounded-control bg-surface-brand px-5 text-sm font-semibold text-text-inverse disabled:opacity-40"
-          >
-            {busy ? "Submitting…" : submission?.status === "sent_back" ? "Resubmit" : "Submit"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!canSubmit}
+              onClick={submit}
+              className="inline-flex h-10 w-fit items-center rounded-control bg-surface-brand px-5 text-sm font-semibold text-text-inverse disabled:opacity-40"
+            >
+              {busy ? "Submitting…" : submission ? "Update" : "Submit"}
+            </button>
+            {submission && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="inline-flex h-10 items-center rounded-control px-4 text-sm font-semibold text-text-body hover:bg-surface-hover"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </>
-      ) : submission.status === "pending" ? (
-        <div className="rounded-card-inner bg-surface-sunken px-4 py-3 text-sm text-text-muted">Waiting for review</div>
-      ) : (
-        <div className="flex items-center gap-3 rounded-card-inner bg-surface-brand-soft px-4 py-3">
-          <span className="text-aa-green-700">✓</span>
-          <span className="text-sm font-semibold text-aa-green-800">Approved · {submission.points_awarded ?? 0} pts</span>
-        </div>
       )}
     </div>
   );
