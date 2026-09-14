@@ -53,52 +53,34 @@ export async function getSocialWindowById(windowId: string): Promise<SocialWindo
   return data;
 }
 
+// A student can now have any number of submissions per window (the
+// unique (window_id, student_id) constraint was dropped), so this returns
+// every row across every window -- newest first, matching how the student
+// board groups them per window client-side.
 export async function getStudentSocialSubmissions(studentId: string): Promise<SocialSubmissionRow[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("social_submissions").select(SUBMISSION_COLUMNS).eq("student_id", studentId);
+  const { data, error } = await supabase
+    .from("social_submissions")
+    .select(SUBMISSION_COLUMNS)
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
 
   if (error || !data) return [];
   return data;
 }
 
 /**
- * The one write path for a student's own submission, mirroring
- * upsertOwnSubmission() in lib/data/taskBoard.ts. A fresh submission (no
- * existing row for this window/student -- the unique (window_id,
- * student_id) constraint guarantees at most one) always inserts as
- * 'pending'. An existing row can be resubmitted regardless of its current
- * status, including 'approved' -- flipping status away from 'approved'
- * fires the revoke_social_points_on_status_change trigger, which removes
- * the now-stale points_ledger row. Resubmitting always resets status to
- * 'pending' and clears every review field (admin_comment, points_awarded,
- * reviewed_by, reviewed_at), since a fresh link means any prior review no
- * longer applies.
+ * Always inserts a new row -- a student can submit any number of separate
+ * posts per window, so there's no existing row to reconcile against
+ * (unlike upsertOwnSubmission() in lib/data/taskBoard.ts, which enforces
+ * one row per task/student). Defaults to 'pending' via the column default.
  */
-export async function upsertOwnSocialSubmission(
+export async function createSocialSubmission(
   windowId: string,
   studentId: string,
   postUrl: string,
 ): Promise<{ submission: SocialSubmissionRow } | { error: string; status: number }> {
   const admin = createAdminClient();
-
-  const { data: updated, error: updateError } = await admin
-    .from("social_submissions")
-    .update({
-      post_url: postUrl,
-      status: "pending",
-      admin_comment: null,
-      points_awarded: null,
-      reviewed_by: null,
-      reviewed_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("window_id", windowId)
-    .eq("student_id", studentId)
-    .select(SUBMISSION_COLUMNS)
-    .maybeSingle();
-
-  if (updateError) return { error: "Could not update submission.", status: 500 };
-  if (updated) return { submission: updated };
 
   const { data: inserted, error: insertError } = await admin
     .from("social_submissions")
@@ -108,4 +90,42 @@ export async function upsertOwnSocialSubmission(
 
   if (insertError || !inserted) return { error: "Could not save submission.", status: 500 };
   return { submission: inserted };
+}
+
+/**
+ * Edits one specific submission by its own id, regardless of its current
+ * status -- including 'approved', where flipping status away from
+ * 'approved' fires the revoke_social_points_on_status_change trigger,
+ * which removes the now-stale points_ledger row. Always resets status to
+ * 'pending' and clears every review field (admin_comment, points_awarded,
+ * reviewed_by, reviewed_at), since a fresh link means any prior review no
+ * longer applies. Ownership (does this submission belong to the requesting
+ * student?) is the API route's responsibility, not this function's --
+ * mirrors how upsertOwnSubmission() in lib/data/taskBoard.ts leaves task
+ * existence/activity checks to its caller.
+ */
+export async function editSocialSubmission(
+  submissionId: string,
+  newUrl: string,
+): Promise<{ submission: SocialSubmissionRow } | { error: string; status: number }> {
+  const admin = createAdminClient();
+
+  const { data: updated, error: updateError } = await admin
+    .from("social_submissions")
+    .update({
+      post_url: newUrl,
+      status: "pending",
+      admin_comment: null,
+      points_awarded: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", submissionId)
+    .select(SUBMISSION_COLUMNS)
+    .maybeSingle();
+
+  if (updateError) return { error: "Could not update submission.", status: 500 };
+  if (!updated) return { error: "Submission not found.", status: 404 };
+  return { submission: updated };
 }
