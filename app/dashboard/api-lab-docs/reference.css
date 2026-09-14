@@ -1,0 +1,472 @@
+/*
+ * Design tokens + page styles for the Commerce API reference, imported from
+ * the "Student API Documentation" Claude Design project. Originally 10
+ * separate files (fetched over the network by the standalone HTML document
+ * this page used to be); consolidated here so Next bundles them with the
+ * page instead. Two deliberate changes from the source:
+ *
+ * 1. --font-display/--font-body/--font-mono point at the fonts this app
+ *    already self-hosts via next/font/google in app/layout.tsx instead of
+ *    re-importing the same three families from fonts.googleapis.com a
+ *    second time -- that redundant external round-trip was the main cause
+ *    of the page's flash-of-unstyled-content on load.
+ * 2. Every selector that isn't a `:root` custom-property declaration is
+ *    scoped under `.api-lab-docs` (the wrapper in ApiLabDocsClient.tsx).
+ *    Next's global-CSS imports aren't route-scoped -- once this stylesheet
+ *    loads it stays loaded across client-side navigation (see the Next.js
+ *    CSS docs' "Ordering and Merging" note), so unscoped bare-element rules
+ *    like `a{...}` or `table{...}` would leak into every other page a
+ *    student visits afterwards.
+ */
+
+:root {
+  /* colors.css */
+  --aa-green-50: #ecf7f2;
+  --aa-green-100: #cdeadf;
+  --aa-green-200: #9bd5c0;
+  --aa-green-300: #5fbb9e;
+  --aa-green-400: #219b79;
+  --aa-green-500: #00875f;
+  --aa-green-600: #007858;
+  --aa-green-700: #006048;
+  --aa-green-800: #004a38;
+  --aa-green-900: #003327;
+  --aa-green-950: #001f18;
+
+  --aa-amber-50: #fffae3;
+  --aa-amber-100: #fff0b0;
+  --aa-amber-200: #ffe470;
+  --aa-amber-300: #ffd82e;
+  --aa-amber-400: #f8c800;
+  --aa-amber-500: #e0b400;
+  --aa-amber-600: #b58f00;
+  --aa-amber-700: #836700;
+
+  --aa-white: #ffffff;
+  --aa-neutral-25: #fcfcfc;
+  --aa-neutral-50: #f7f7f7;
+  --aa-neutral-100: #f4f4f4;
+  --aa-neutral-200: #e8e8e8;
+  --aa-neutral-300: #e4e4e4;
+  --aa-neutral-400: #d4d4d4;
+  --aa-neutral-500: #a3a3a3;
+  --aa-neutral-600: #747474;
+  --aa-neutral-700: #444444;
+  --aa-neutral-800: #303030;
+  --aa-neutral-900: #1a1a1a;
+  --aa-neutral-950: #0c0c0c;
+  --aa-black: #000000;
+
+  --aa-red-50: #fef0ee;
+  --aa-red-500: #d92d20;
+  --aa-red-700: #a81d13;
+
+  --text-strong: var(--aa-black);
+  --text-body: var(--aa-neutral-800);
+  --text-muted: var(--aa-neutral-600);
+  --text-faint: var(--aa-neutral-500);
+  --text-inverse: var(--aa-white);
+  --text-inverse-muted: #a8b5af;
+  --text-accent: var(--aa-green-700);
+  --text-danger: var(--aa-red-500);
+  --text-link: var(--aa-green-700);
+  --text-link-hover: var(--aa-green-900);
+
+  --surface-app: var(--aa-neutral-100);
+  --surface-page: var(--aa-neutral-25);
+  --surface-card: var(--aa-white);
+  --surface-sunken: var(--aa-neutral-100);
+  --surface-hover: var(--aa-neutral-50);
+  --surface-ink: var(--aa-neutral-950);
+  --surface-ink-raised: #1e1e1e;
+  --surface-brand: var(--aa-green-600);
+  --surface-brand-hover: var(--aa-green-700);
+  --surface-brand-soft: var(--aa-green-50);
+  --surface-accent: var(--aa-amber-400);
+  --surface-accent-soft: var(--aa-amber-50);
+  --surface-danger-soft: var(--aa-red-50);
+
+  --border-hairline: var(--aa-neutral-300);
+  --border-hairline-strong: var(--aa-neutral-400);
+  --border-ink: var(--aa-neutral-950);
+  --border-brand: var(--aa-green-600);
+  --border-accent: var(--aa-amber-400);
+  --border-focus: var(--aa-green-600);
+
+  --status-success: var(--aa-green-600);
+  --status-warning: var(--aa-amber-400);
+  --status-danger: var(--aa-red-500);
+  --status-idle: var(--aa-neutral-500);
+
+  /* typography.css -- font-family values changed, see file header */
+  --font-display: var(--font-bricolage), var(--font-plex-arabic), system-ui, sans-serif;
+  --font-body: var(--font-plex-arabic), var(--font-bricolage), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-arabic: var(--font-plex-arabic), system-ui, sans-serif;
+
+  --fs-3xs: 11px;
+  --fs-2xs: 12px;
+  --fs-xs: 13px;
+  --fs-sm: 14px;
+  --fs-base: 15px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 21px;
+  --fs-2xl: 26px;
+  --fs-3xl: 32px;
+  --fs-4xl: 42px;
+  --fs-5xl: 56px;
+  --fs-6xl: 72px;
+  --fs-7xl: 96px;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-black: 800;
+
+  --lh-tight: 1.02;
+  --lh-snug: 1.14;
+  --lh-heading: 1.22;
+  --lh-body: 1.55;
+  --lh-relaxed: 1.7;
+
+  --tr-tightest: -0.04em;
+  --tr-tighter: -0.025em;
+  --tr-tight: -0.012em;
+  --tr-none: 0;
+  --tr-wide: 0.04em;
+  --tr-widest: 0.12em;
+
+  --type-hero: var(--fw-black) var(--fs-6xl) / var(--lh-tight) var(--font-display);
+  --type-display: var(--fw-bold) var(--fs-4xl) / var(--lh-snug) var(--font-display);
+  --type-title: var(--fw-bold) var(--fs-2xl) / var(--lh-heading) var(--font-display);
+  --type-heading: var(--fw-bold) var(--fs-lg) / var(--lh-heading) var(--font-display);
+  --type-body: var(--fw-regular) var(--fs-base) / var(--lh-body) var(--font-body);
+  --type-body-strong: var(--fw-semibold) var(--fs-base) / var(--lh-body) var(--font-body);
+  --type-small: var(--fw-regular) var(--fs-sm) / var(--lh-body) var(--font-body);
+  --type-label: var(--fw-semibold) var(--fs-2xs) / 1.3 var(--font-body);
+  --type-eyebrow: var(--fw-bold) var(--fs-3xs) / 1.2 var(--font-body);
+  --type-mono: var(--fw-medium) var(--fs-xs) / 1.5 var(--font-mono);
+  --type-metric: var(--fw-black) var(--fs-3xl) / var(--lh-tight) var(--font-display);
+
+  /* spacing.css */
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 14px;
+  --space-8: 16px;
+  --space-9: 20px;
+  --space-10: 24px;
+  --space-11: 28px;
+  --space-12: 32px;
+  --space-13: 40px;
+  --space-14: 48px;
+  --space-15: 56px;
+  --space-16: 64px;
+  --space-17: 80px;
+  --space-18: 96px;
+  --space-19: 128px;
+  --pad-card: 20px;
+  --pad-card-lg: 24px;
+  --pad-control: 12px;
+  --gap-stack: 12px;
+  --gap-grid: 16px;
+  --gap-section: 32px;
+  --section-y: 96px;
+  --gutter-page: 32px;
+  --sidebar-w: 248px;
+  --topbar-h: 60px;
+  --content-max: 1180px;
+  --prose-max: 68ch;
+
+  /* radius.css */
+  --radius-none: 0;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+  --radius-pill: 999px;
+  --radius-card: 16px;
+  --radius-card-inner: 12px;
+  --radius-control: 10px;
+  --radius-chip: var(--radius-pill);
+  --radius-sheet: 20px;
+
+  /* elevation.css */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.1), 0 4px 8px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 28px 64px -16px rgba(0, 0, 0, 0.16), 0 8px 16px -8px rgba(0, 0, 0, 0.06);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-inset-sunken: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-ink: 2px 2px 0 0 var(--aa-neutral-950);
+  --shadow-ink-lg: 4px 4px 0 0 var(--aa-neutral-950);
+  --shadow-accent: 3px 3px 0 0 var(--aa-amber-400);
+  --ring-focus: 0 0 0 3px rgba(0, 120, 88, 0.22);
+  --ring-danger: 0 0 0 3px rgba(217, 45, 32, 0.2);
+  --ring-accent: 0 0 0 3px rgba(248, 200, 0, 0.35);
+
+  /* borders.css */
+  --bw-hairline: 1px;
+  --bw-thick: 2px;
+  --bw-heavy: 3px;
+  --bw-bar: 4px;
+  --bw-slab: 6px;
+  --border-card: 1px solid var(--border-hairline);
+  --border-control: 1px solid var(--border-hairline-strong);
+  --border-thick-ink: 2px solid var(--border-ink);
+  --border-thick-brand: 2px solid var(--border-brand);
+  --stripe-w: 4px;
+  --rule-hairline: 1px solid var(--border-hairline);
+  --rule-thick: 2px solid var(--aa-neutral-950);
+
+  /* backgrounds.css */
+  --dot-color: #d9d9d9;
+  --dot-color-soft: #e4e4e4;
+  --dot-color-ink: #2e2e2e;
+  --dot-size: 1.5px;
+  --dot-gap: 20px;
+  --dot-gap-lg: 28px;
+  --bg-dots: radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size)) 0 0 / var(--dot-gap)
+    var(--dot-gap);
+  --bg-dots-soft: radial-gradient(var(--dot-color-soft) var(--dot-size), transparent var(--dot-size)) 0 0 /
+    var(--dot-gap) var(--dot-gap);
+  --bg-dots-ink: radial-gradient(var(--dot-color-ink) var(--dot-size), transparent var(--dot-size)) 0 0 /
+    var(--dot-gap) var(--dot-gap);
+  --bg-grid: linear-gradient(var(--dot-color-soft) 1px, transparent 1px) 0 0 / 100% var(--dot-gap-lg),
+    linear-gradient(90deg, var(--dot-color-soft) 1px, transparent 1px) 0 0 / var(--dot-gap-lg) 100%;
+  --mask-fade-b: linear-gradient(to bottom, #000 55%, transparent 100%);
+  --mask-fade-radial: radial-gradient(120% 90% at 50% 0%, #000 40%, transparent 100%);
+
+  /* motion.css */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-smooth-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-linear: linear;
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+  --dur-slower: 640ms;
+  --dur-ambient: 1200ms;
+  --stagger-step: 60ms;
+  --transition-control: background-color var(--dur-fast) var(--ease-smooth), border-color var(--dur-fast)
+      var(--ease-smooth), color var(--dur-fast) var(--ease-smooth), box-shadow var(--dur-fast) var(--ease-smooth),
+    transform var(--dur-base) var(--ease-smooth);
+  --transition-surface: transform var(--dur-base) var(--ease-smooth), box-shadow var(--dur-base) var(--ease-smooth),
+    border-color var(--dur-base) var(--ease-smooth);
+  --lift-hover: translateY(-2px);
+  --press-scale: scale(0.985);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+    --dur-slower: 1ms;
+    --dur-ambient: 1ms;
+    --lift-hover: none;
+    --press-scale: none;
+  }
+}
+
+/* base.css + the page's own <style> block, scoped under .api-lab-docs */
+.api-lab-docs,
+.api-lab-docs *,
+.api-lab-docs *::before,
+.api-lab-docs *::after {
+  box-sizing: border-box;
+}
+.api-lab-docs {
+  background: var(--surface-page);
+  font: var(--type-body);
+  color: var(--text-body);
+}
+.api-lab-docs p {
+  margin: 0;
+}
+.api-lab-docs h1,
+.api-lab-docs h2,
+.api-lab-docs h3 {
+  margin: 0;
+}
+.api-lab-docs a {
+  color: var(--text-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.api-lab-docs a:hover {
+  color: var(--text-link-hover);
+}
+.api-lab-docs strong {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.api-lab-docs table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface-card);
+}
+.api-lab-docs th {
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: bottom;
+  font: var(--fw-bold) 11px/1.2 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--aa-black);
+  white-space: nowrap;
+}
+.api-lab-docs td {
+  padding: 11px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-hairline);
+  font: var(--fw-regular) 14px/1.5 var(--font-body);
+  color: var(--text-body);
+}
+.api-lab-docs tbody tr:last-child td {
+  border-bottom: none;
+}
+.api-lab-docs td:nth-child(1) {
+  font: var(--fw-bold) 12px/1.5 var(--font-mono);
+  color: var(--aa-black);
+  white-space: nowrap;
+}
+.api-lab-docs td[data-write] {
+  color: var(--aa-green-700);
+}
+.api-lab-docs td[data-y="y"] {
+  font: var(--fw-bold) 12px/1.5 var(--font-mono);
+  color: var(--aa-green-700);
+}
+.api-lab-docs td[data-y="n"] {
+  font: var(--fw-medium) 12px/1.5 var(--font-mono);
+  color: var(--text-faint);
+}
+.api-lab-docs code {
+  font: var(--fw-medium) 13px/1.45 var(--font-mono);
+  background: var(--surface-sunken);
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--aa-neutral-900);
+}
+.api-lab-docs td code,
+.api-lab-docs th code {
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.api-lab-docs pre {
+  margin: 0;
+}
+.api-lab-docs pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  white-space: pre;
+}
+.api-lab-docs ol,
+.api-lab-docs ul {
+  margin: 0;
+  padding-left: 22px;
+}
+.api-lab-docs li {
+  margin: 0 0 8px;
+  font: var(--type-body);
+  color: var(--text-body);
+}
+.api-lab-docs li::marker {
+  font: var(--fw-bold) 13px var(--font-mono);
+  color: var(--aa-green-700);
+}
+
+.api-lab-docs {
+  --doc-cols: 228px minmax(0, 1fr);
+  --doc-gap: 56px;
+  --nav-dir: column;
+  --nav-ovf: visible;
+  --nav-sticky: sticky;
+  --nav-top: 24px;
+  --nav-pad: 0;
+  --nav-bg: transparent;
+  --nav-line: none;
+  --hero-fs: var(--fs-5xl);
+  --hero-pad: 72px 24px 56px;
+  --body-pad: 40px 24px 96px;
+}
+@media (max-width: 900px) {
+  .api-lab-docs {
+    --doc-cols: minmax(0, 1fr);
+    --doc-gap: 18px;
+    --nav-dir: row;
+    --nav-ovf: auto;
+    --nav-top: 0px;
+    --nav-pad: 10px 0;
+    --nav-bg: var(--surface-page);
+    --nav-line: 1px solid var(--border-hairline);
+    --hero-fs: var(--fs-3xl);
+    --hero-pad: 44px 18px 32px;
+    --body-pad: 8px 18px 64px;
+  }
+}
+
+/* Task 3: info-box hover/interaction + copy-to-clipboard icon button. */
+.api-lab-docs .lab-infobox {
+  transition: var(--transition-surface);
+}
+.api-lab-docs .lab-infobox:hover {
+  transform: var(--lift-hover);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hairline-strong);
+}
+.api-lab-docs .lab-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-control);
+}
+.api-lab-docs .lab-copy-btn:hover {
+  background: var(--surface-sunken);
+  color: var(--text-strong);
+}
+.api-lab-docs .lab-copy-btn:active {
+  transform: var(--press-scale);
+}
+.api-lab-docs .lab-copy-btn .lab-copied-icon {
+  display: none;
+}
+.api-lab-docs .lab-copy-btn.is-copied {
+  color: var(--aa-green-700);
+}
+.api-lab-docs .lab-copy-btn.is-copied .lab-copy-icon {
+  display: none;
+}
+.api-lab-docs .lab-copy-btn.is-copied .lab-copied-icon {
+  display: inline-flex;
+}
