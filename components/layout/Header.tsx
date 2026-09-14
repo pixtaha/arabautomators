@@ -88,6 +88,11 @@ export function Header() {
             </ButtonLink>
           )}
           {showDashboardLinks && (
+            <ButtonLink href="/dashboard/social-submissions" variant="ghost" size="md">
+              Social
+            </ButtonLink>
+          )}
+          {showDashboardLinks && (
             <ButtonLink href="/dashboard/api-lab-docs" variant="ghost" size="md">
               API Docs
             </ButtonLink>
@@ -132,6 +137,11 @@ export function Header() {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-aa-red-500" />
                 </span>
               )}
+            </Link>
+          )}
+          {showDashboardLinks && (
+            <Link href="/dashboard/social-submissions" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
+              Social
             </Link>
           )}
           {Boolean(user) && isAdmin && (

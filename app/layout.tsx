@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, IBM_Plex_Sans_Arabic, JetBrains_Mono } from "next/font/google";
+import { ViewTracker } from "@/components/ViewTracker";
+import { PresenceBeacon } from "@/components/PresenceBeacon";
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({
@@ -30,7 +32,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${bricolage.variable} ${plexArabic.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-body text-text-body">{children}</body>
+      <body className="min-h-full flex flex-col font-body text-text-body">
+        <ViewTracker />
+        <PresenceBeacon />
+        {children}
+      </body>
     </html>
   );
 }

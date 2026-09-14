@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 
 export interface AdminPanelProps {
-  /** Visitors currently on the site. Rendered as-is -- wire this to real-time data from the caller. */
-  liveVisitorCount: number;
+  /** Visitors currently on the site. This is inherently a live/client-side value (a Realtime presence
+   * count), so unlike totalSiteOpens this takes a ReactNode -- pass a client component that computes
+   * it, not a plain number, so AdminPanel itself can stay a server component. */
+  liveVisitorCount: ReactNode;
   /** Total site opens recorded since launch. Rendered as-is -- wire this to real data from the caller. */
   totalSiteOpens: number;
 }
@@ -42,6 +44,26 @@ function ActionSection({ label, children }: { label: string; children: ReactNode
       <EyebrowLabel>{label}</EyebrowLabel>
       <div className="mt-3.5 flex flex-wrap items-center gap-2.5">{children}</div>
     </div>
+  );
+}
+
+// No route exists for these yet. Deliberately not built on top of Button/
+// buttonClasses -- the "secondary" variant's shimmer animation and hover
+// states would have to be fought with !important overrides to mute them,
+// where a plain, static, disabled <button> gets the same "not live yet"
+// result directly.
+function DimmedButton({ children }: { children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled
+      className="inline-flex h-10 cursor-not-allowed items-center justify-center gap-2 whitespace-nowrap rounded-control border border-border-hairline bg-surface-sunken px-5 text-sm font-semibold text-text-faint opacity-45"
+    >
+      {children}
+      <span className="rounded-full bg-surface-page px-1.5 py-0.5 font-mono text-[9px] font-semibold tracking-wide uppercase">
+        Soon
+      </span>
+    </button>
   );
 }
 
@@ -201,7 +223,7 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
                 </div>
                 <div className="text-base font-semibold text-text-strong">On the site right now</div>
                 <div className="font-mono text-[40px] leading-none font-bold tracking-tighter text-text-strong tabular-nums sm:text-[48px]">
-                  {formatNumber(liveVisitorCount)}
+                  {liveVisitorCount}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-sm text-text-muted">
                   <div className="flex items-baseline gap-1.5">
@@ -284,51 +306,51 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
 
           <div className="flex flex-col gap-7">
             <ActionSection label="Students & content">
-              <Button variant="secondary">
+              <DimmedButton>
                 <UsersIcon className="h-[18px] w-[18px]" />
                 Manage students
-              </Button>
-              <Button variant="secondary">
+              </DimmedButton>
+              <ButtonLink href="/admin/session-resources" variant="secondary">
                 <GraduationCapIcon className="h-[18px] w-[18px]" />
                 Modules & sessions
-              </Button>
-              <Button variant="secondary">
+              </ButtonLink>
+              <DimmedButton>
                 <UploadIcon className="h-[18px] w-[18px]" />
                 Upload a session
-              </Button>
-              <Button variant="secondary">
+              </DimmedButton>
+              <DimmedButton>
                 <BookOpenIcon className="h-[18px] w-[18px]" />
                 Snippet library
-              </Button>
+              </DimmedButton>
             </ActionSection>
 
             <ActionSection label="Engagement">
-              <Button variant="secondary">
+              <ButtonLink href="/admin/quizzes" variant="secondary">
                 <ListChecksIcon className="h-[18px] w-[18px]" />
                 Quizzes
-              </Button>
-              <Button variant="secondary">
+              </ButtonLink>
+              <DimmedButton>
                 <TrophyIcon className="h-[18px] w-[18px]" />
                 Leaderboard
-              </Button>
-              <Button variant="secondary">
+              </DimmedButton>
+              <DimmedButton>
                 <StarIcon className="h-[18px] w-[18px]" />
                 Points
-              </Button>
+              </DimmedButton>
             </ActionSection>
 
             <ActionSection label="Social submissions">
-              <Button variant="secondary">
+              <ButtonLink href="/admin/task-reviews" variant="secondary">
                 <InboxIcon className="h-[18px] w-[18px]" />
                 Review submissions
-              </Button>
+              </ButtonLink>
               <span className="inline-flex h-6 items-center rounded-full bg-surface-sunken px-2.5 font-mono text-[11px] font-semibold text-text-muted">
                 {NEW_SUBMISSIONS} new
               </span>
-              <Button variant="secondary">
+              <ButtonLink href="/admin/social-submissions" variant="secondary">
                 <LinkIcon className="h-[18px] w-[18px]" />
                 Submitted links
-              </Button>
+              </ButtonLink>
             </ActionSection>
 
             <ActionSection label="Task board">
@@ -347,14 +369,14 @@ export function AdminPanel({ liveVisitorCount, totalSiteOpens }: AdminPanelProps
                 <WorkflowIcon className="h-[18px] w-[18px]" />
                 Push workflow to students
               </Button>
-              <Button variant="secondary">
+              <ButtonLink href="/dashboard/api-lab-docs" variant="secondary">
                 <FlaskIcon className="h-[18px] w-[18px]" />
                 API Lab
-              </Button>
-              <Button variant="secondary">
+              </ButtonLink>
+              <DimmedButton>
                 <KeyIcon className="h-[18px] w-[18px]" />
                 OpenRouter keys
-              </Button>
+              </DimmedButton>
             </ActionSection>
           </div>
         </div>
