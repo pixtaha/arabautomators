@@ -110,3 +110,14 @@ export function parseDate(input: unknown, label: string): { value: string | null
   if (Number.isNaN(parsed.getTime())) return { error: `Invalid ${label}.` };
   return { value: parsed.toISOString() };
 }
+
+// completedColorBase/completedColorMedium come from an <input type="color">,
+// which only ever emits "#rrggbb", but this still validates server-side
+// since the request body isn't trustworthy just because the browser widget
+// is well-behaved.
+export function parseHexColor(input: unknown, label: string): { value: string | null } | { error: string } {
+  if (typeof input !== "string" || !input.trim()) return { value: null };
+  const trimmed = input.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(trimmed)) return { error: `${label} must be a valid hex color (e.g. #fde68a).` };
+  return { value: trimmed.toLowerCase() };
+}

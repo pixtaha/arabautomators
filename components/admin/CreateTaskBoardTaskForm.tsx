@@ -160,8 +160,17 @@ export function CreateTaskBoardTaskForm({
   const [requiresVideo, setRequiresVideo] = useState(() => initialTask?.requires_video ?? false);
   const [requiresFile, setRequiresFile] = useState(() => initialTask?.requires_file ?? true);
   const [submissionLinkLabel, setSubmissionLinkLabel] = useState(() => initialTask?.submission_link_label ?? "");
+  const [submissionPdfLabel, setSubmissionPdfLabel] = useState(() => initialTask?.submission_pdf_label ?? "");
+  const [submissionImageLabel, setSubmissionImageLabel] = useState(() => initialTask?.submission_image_label ?? "");
+  const [submissionVideoLabel, setSubmissionVideoLabel] = useState(() => initialTask?.submission_video_label ?? "");
+  const [submissionFileLabel, setSubmissionFileLabel] = useState(() => initialTask?.submission_file_label ?? "");
   const [requiresCode, setRequiresCode] = useState(() => initialTask?.requires_code ?? false);
+  const [submissionCodePlaceholder, setSubmissionCodePlaceholder] = useState(
+    () => initialTask?.submission_code_placeholder ?? "",
+  );
   const [requiresScreenshots, setRequiresScreenshots] = useState(() => initialTask?.requires_screenshots ?? false);
+  const [completedColorBase, setCompletedColorBase] = useState(() => initialTask?.completed_color_base ?? "");
+  const [completedColorMedium, setCompletedColorMedium] = useState(() => initialTask?.completed_color_medium ?? "");
   const [levels, setLevels] = useState<Record<LevelKey, LevelState>>(() =>
     initialTask ? levelsFromTask(initialTask) : emptyLevels(),
   );
@@ -279,8 +288,15 @@ export function CreateTaskBoardTaskForm({
       requiresVideo,
       requiresFile,
       submissionLinkLabel: requiresLink && submissionLinkLabel.trim() ? submissionLinkLabel.trim() : null,
+      submissionPdfLabel: requiresPdf && submissionPdfLabel.trim() ? submissionPdfLabel.trim() : null,
+      submissionImageLabel: requiresImage && submissionImageLabel.trim() ? submissionImageLabel.trim() : null,
+      submissionVideoLabel: requiresVideo && submissionVideoLabel.trim() ? submissionVideoLabel.trim() : null,
+      submissionFileLabel: requiresFile && submissionFileLabel.trim() ? submissionFileLabel.trim() : null,
       requiresCode,
+      submissionCodePlaceholder: requiresCode && submissionCodePlaceholder.trim() ? submissionCodePlaceholder.trim() : null,
       requiresScreenshots,
+      completedColorBase: levels.base.enabled && completedColorBase ? completedColorBase : null,
+      completedColorMedium: levels.medium.enabled && completedColorMedium ? completedColorMedium : null,
       levels: Object.fromEntries(
         LEVEL_KEYS.map((key) => {
           const lv = levels[key];
@@ -350,8 +366,15 @@ export function CreateTaskBoardTaskForm({
         setRequiresVideo(false);
         setRequiresFile(true);
         setSubmissionLinkLabel("");
+        setSubmissionPdfLabel("");
+        setSubmissionImageLabel("");
+        setSubmissionVideoLabel("");
+        setSubmissionFileLabel("");
         setRequiresCode(false);
+        setSubmissionCodePlaceholder("");
         setRequiresScreenshots(false);
+        setCompletedColorBase("");
+        setCompletedColorMedium("");
         setLevels(emptyLevels());
         setResources([]);
       }
@@ -508,6 +531,56 @@ export function CreateTaskBoardTaskForm({
             disabled={submitting}
           />
         )}
+        {requiresPdf && (
+          <Input
+            id="task-submission-pdf-label"
+            label="PDF field label (optional)"
+            value={submissionPdfLabel}
+            onChange={(e) => setSubmissionPdfLabel(e.target.value)}
+            placeholder="e.g. Exported workflow PDF (defaults to “Choose a pdf to upload”)"
+            disabled={submitting}
+          />
+        )}
+        {requiresImage && (
+          <Input
+            id="task-submission-image-label"
+            label="Image field label (optional)"
+            value={submissionImageLabel}
+            onChange={(e) => setSubmissionImageLabel(e.target.value)}
+            placeholder="e.g. Screenshot of the final result"
+            disabled={submitting}
+          />
+        )}
+        {requiresVideo && (
+          <Input
+            id="task-submission-video-label"
+            label="Video field label (optional)"
+            value={submissionVideoLabel}
+            onChange={(e) => setSubmissionVideoLabel(e.target.value)}
+            placeholder="e.g. Screen recording of the workflow running"
+            disabled={submitting}
+          />
+        )}
+        {requiresFile && (
+          <Input
+            id="task-submission-file-label"
+            label="File field label (optional)"
+            value={submissionFileLabel}
+            onChange={(e) => setSubmissionFileLabel(e.target.value)}
+            placeholder="e.g. Exported workflow JSON"
+            disabled={submitting}
+          />
+        )}
+        {requiresCode && (
+          <Input
+            id="task-submission-code-placeholder"
+            label="Code placeholder (optional)"
+            value={submissionCodePlaceholder}
+            onChange={(e) => setSubmissionCodePlaceholder(e.target.value)}
+            placeholder="e.g. Paste the HTTP Request node's output"
+            disabled={submitting}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-3 border-t-2 border-border-hairline pt-4">
@@ -573,6 +646,38 @@ export function CreateTaskBoardTaskForm({
                       className="w-full resize-y rounded-control border border-border-hairline-strong bg-surface-card p-3 text-sm text-text-body outline-none focus:border-surface-brand focus:ring-2 focus:ring-surface-brand/25"
                     />
                   </div>
+                  {key !== "hard" && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
+                        Completed card color (optional)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={(key === "base" ? completedColorBase : completedColorMedium) || "#ffffff"}
+                          onChange={(e) =>
+                            key === "base" ? setCompletedColorBase(e.target.value) : setCompletedColorMedium(e.target.value)
+                          }
+                          disabled={submitting}
+                          className="h-9 w-14 cursor-pointer rounded-control border border-border-hairline-strong bg-surface-card p-1"
+                        />
+                        {(key === "base" ? completedColorBase : completedColorMedium) && (
+                          <button
+                            type="button"
+                            onClick={() => (key === "base" ? setCompletedColorBase("") : setCompletedColorMedium(""))}
+                            disabled={submitting}
+                            className="cursor-pointer text-xs font-semibold text-text-accent underline"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-faint">
+                        Background color for this task&apos;s card on a student&apos;s board once their submission is
+                        approved at {LEVEL_LABELS[key]} level. Hard&apos;s color is fixed (solid green, white text).
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

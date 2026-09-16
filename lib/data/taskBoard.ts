@@ -69,9 +69,26 @@ export interface TaskBoardTaskRow {
   // Custom label for the link input when requires_link is true; null falls
   // back to a generic "Submission link" label.
   submission_link_label: string | null;
+  // Same fallback role as submission_link_label, one per file-type flag --
+  // a task can require more than one of pdf/image/video/file at once, and
+  // each upload box needs its own hint (e.g. "screen recording" vs.
+  // "exported workflow JSON"), so a single shared label wouldn't work.
+  submission_pdf_label: string | null;
+  submission_image_label: string | null;
+  submission_video_label: string | null;
+  submission_file_label: string | null;
   requires_code: boolean;
+  // Placeholder shown in the code textarea when requires_code is true;
+  // null falls back to the generic "Paste your code here" placeholder.
+  submission_code_placeholder: string | null;
   requires_screenshots: boolean;
   is_active: boolean;
+  // Background color for this task's card on a student's board once their
+  // submission is approved at that level. Null = no custom color, card
+  // keeps its plain background. Hard's completed color is fixed in the
+  // client (solid green, white text), so it has no column here.
+  completed_color_base: string | null;
+  completed_color_medium: string | null;
 }
 
 export interface TaskBoardSubmissionRow {
@@ -166,12 +183,30 @@ export interface TaskBoardResourceRow {
 }
 
 const TASK_COLUMNS =
-  "id, order_index, title, title_ar, description, description_ar, checklist, start_at, end_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, requires_link, requires_pdf, requires_image, requires_video, requires_file, submission_link_label, requires_code, requires_screenshots, is_active";
+  "id, order_index, title, title_ar, description, description_ar, checklist, start_at, end_at, points_base, points_medium, points_hard, description_base, description_medium, description_hard, checklist_base, checklist_medium, checklist_hard, requires_link, requires_pdf, requires_image, requires_video, requires_file, submission_link_label, submission_pdf_label, submission_image_label, submission_video_label, submission_file_label, requires_code, submission_code_placeholder, requires_screenshots, is_active, completed_color_base, completed_color_medium";
 
 const SUBMISSION_COLUMNS =
   "id, task_id, student_id, status, level, bonus_points, submission_link, submission_file_path, submission_file_name, submission_file_size_bytes, submission_pdf_path, submission_pdf_name, submission_pdf_size_bytes, submission_image_path, submission_image_name, submission_image_size_bytes, submission_video_path, submission_video_name, submission_video_size_bytes, submission_note, submission_code, admin_note, points_awarded, submitted_at, reviewed_at, reviewed_by, created_at, updated_at";
 
 const RESOURCE_COLUMNS = "id, task_id, type, label, scope, levels, url, code_content, code_language, sort_order, created_at";
+
+export class TaskBoardReadError extends Error {
+  constructor() {
+    super("Could not load the Task Board. Please try again.");
+    this.name = "TaskBoardReadError";
+  }
+}
+
+function failTaskBoardRead(operation: string, error: { code?: string; message: string } | null): never {
+  // Database diagnostics stay on the server. Only the generic error below
+  // may reach the page boundary or API response.
+  console.error("[task-board] Database read failed", {
+    operation,
+    code: error?.code ?? "NO_DATA",
+    message: error?.message ?? "Query returned no data",
+  });
+  throw new TaskBoardReadError();
+}
 
 export async function getActiveTaskBoardTasks(): Promise<TaskBoardTaskRow[]> {
   const supabase = createAdminClient();
@@ -181,7 +216,7 @@ export async function getActiveTaskBoardTasks(): Promise<TaskBoardTaskRow[]> {
     .eq("is_active", true)
     .order("order_index");
 
-  if (error || !data) return [];
+  if (error || !data) failTaskBoardRead("active tasks", error);
   return data;
 }
 
@@ -189,7 +224,7 @@ export async function getTaskBoardTaskById(taskId: string): Promise<TaskBoardTas
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("task_board_tasks").select(TASK_COLUMNS).eq("id", taskId).maybeSingle();
 
-  if (error || !data) return null;
+  if (error) failTaskBoardRead("task detail", error);
   return data;
 }
 
@@ -207,7 +242,7 @@ export async function getStudentSubmissions(studentId: string): Promise<TaskBoar
   const supabase = createAdminClient();
   const { data, error } = await supabase.from("task_board_submissions").select(SUBMISSION_COLUMNS).eq("student_id", studentId);
 
-  if (error || !data) return [];
+  if (error || !data) failTaskBoardRead("student submissions", error);
   return data;
 }
 
@@ -240,7 +275,7 @@ export async function getResourcesByTaskIds(taskIds: string[]): Promise<Record<s
     .in("task_id", taskIds)
     .order("sort_order");
 
-  if (error || !data) return {};
+  if (error || !data) failTaskBoardRead("task resources", error);
 
   const byTask: Record<string, TaskBoardResourceRow[]> = {};
   for (const row of data) {
@@ -269,7 +304,8 @@ export async function getTaskCompletions(): Promise<Record<string, TaskCompletio
     .select("task_id, student_id")
     .in("status", COMPLETION_STATUSES);
 
-  if (error || !submissions || submissions.length === 0) return {};
+  if (error || !submissions) failTaskBoardRead("task completions", error);
+  if (submissions.length === 0) return {};
 
   const studentIds = [...new Set(submissions.map((s) => s.student_id))];
 
@@ -277,10 +313,13 @@ export async function getTaskCompletions(): Promise<Record<string, TaskCompletio
   // across the whole board. Same admin-exclusion convention as
   // /api/points/leaderboard and /api/tasks/leaderboard -- team accounts
   // don't appear in student-facing social features.
-  const [{ data: profiles }, { data: admins }] = await Promise.all([
+  const [{ data: profiles, error: profilesError }, { data: admins, error: adminsError }] = await Promise.all([
     supabase.from("profiles").select("id, username, avatar_url").in("id", studentIds),
     supabase.from("profiles").select("id").eq("role", "admin"),
   ]);
+
+  if (profilesError || !profiles) failTaskBoardRead("completion profiles", profilesError);
+  if (adminsError || !admins) failTaskBoardRead("completion admin exclusion", adminsError);
 
   const adminIds = new Set((admins ?? []).map((a) => a.id as string));
   const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]));

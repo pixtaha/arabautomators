@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Avatar } from "@/components/ui/Avatar";
@@ -44,6 +44,16 @@ function submissionFileNameForKind(submission: TaskBoardSubmissionRow | null, ki
   return submission.submission_file_name;
 }
 
+// Admin-settable hint for what file a given upload box actually expects
+// (e.g. "Exported workflow JSON") -- falls back to the generic
+// "Choose a <kind> to upload" copy at the call site when null.
+function submissionLabelForKind(task: TaskBoardTaskRow, kind: SubmissionFileKind): string | null {
+  if (kind === "pdf") return task.submission_pdf_label;
+  if (kind === "image") return task.submission_image_label;
+  if (kind === "video") return task.submission_video_label;
+  return task.submission_file_label;
+}
+
 // Levels a resource is visible for -- 'general' resources show regardless
 // of the currently-selected level, matching descriptionForLevel/
 // checklistForLevel's own fallback reasoning just above.
@@ -80,6 +90,39 @@ const LEVEL_META: Record<
     chipText: "text-aa-green-800",
   },
 };
+
+// Hard's "completed" card color is fixed (not admin-configurable) --
+// matches --color-aa-green-600 / --color-surface-brand in app/globals.css,
+// the same green already used for Hard's own dot/border elsewhere on this
+// page, and --color-text-inverse for the white text.
+const HARD_COMPLETED_BG = "#007858";
+const HARD_COMPLETED_TEXT = "#ffffff";
+
+// Picks readable text color for an arbitrary admin-picked background hex
+// via a standard relative-luminance approximation -- not full WCAG
+// contrast-ratio compliance, just a reasonable binary black/white choice
+// so a custom Base/Medium color stays legible without needing a second
+// "text color" control in the admin form. #000000/#ffffff match
+// --color-text-strong/--color-text-inverse.
+function contrastTextColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? "#000000" : "#ffffff";
+}
+
+// "Completed" means locked (status = 'approved') specifically -- submitted/
+// reviewing don't count, even though they share the "Completed" column
+// label below. Returns null (no color override, card keeps its plain
+// background) whenever the task isn't locked, is at Hard but somehow has
+// no offered level, or the admin never set a color for this level.
+function completedCardColor(task: TaskBoardTaskRow, level: TaskBoardLevel, locked: boolean): { bg: string; text: string } | null {
+  if (!locked) return null;
+  if (level === "hard") return { bg: HARD_COMPLETED_BG, text: HARD_COMPLETED_TEXT };
+  const customBg = level === "base" ? task.completed_color_base : task.completed_color_medium;
+  return customBg ? { bg: customBg, text: contrastTextColor(customBg) } : null;
+}
 
 const COLUMN_DEFS: {
   key: "todo" | "progress" | "submitted";
@@ -169,6 +212,25 @@ function checklistForLevel(task: TaskBoardTaskRow, level: TaskBoardLevel) {
   return perLevel && perLevel.length > 0 ? perLevel : task.checklist;
 }
 
+// A description with 2+ non-empty lines renders as a numbered list
+// (similar container treatment to the "What is expected" checklist below
+// it) instead of one dense paragraph -- admins already write multi-line
+// content elsewhere on this form (the checklist textarea is literally "one
+// item per line"), so this needs no new authoring convention, and a
+// single-line description (every live task today) still renders as a
+// plain paragraph exactly as before. Deliberately newline-based rather
+// than detecting a "1. "/"1) " pattern within a run-on string: these
+// descriptions already mix Arabic prose with raw URLs and API params
+// (e.g. "category=computers, in_stock=true"), which makes a numeric-prefix
+// regex genuinely risky to false-positive on.
+function descriptionListItems(description: string): string[] | null {
+  const lines = description
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length >= 2 ? lines : null;
+}
+
 const AVATAR_STACK_MAX = 4;
 
 // Who has turned this task in -- public social proof among students, not
@@ -213,6 +275,13 @@ function AvatarStack({ people, size = 24 }: { people: TaskCompletionAvatar[]; si
   );
 }
 
+function withoutKey<T>(map: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in map)) return map;
+  const next = { ...map };
+  delete next[key];
+  return next;
+}
+
 async function postJson(taskId: string, body: unknown) {
   const res = await fetch(`/api/task-board/tasks/${taskId}/submission`, {
     method: "POST",
@@ -220,7 +289,7 @@ async function postJson(taskId: string, body: unknown) {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => null);
-  if (!res.ok) return { ok: false as const, error: data?.error as string | undefined };
+  if (!res.ok || !data?.submission) return { ok: false as const, error: data?.error as string | undefined };
   return { ok: true as const, submission: data.submission as TaskBoardSubmissionRow };
 }
 
@@ -271,12 +340,27 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Drag-and-drop column moves used to wait on the full moveStatus network
+  // round trip before the card visually moved -- it'd snap back to its
+  // original column on drop, then jump to the new one once the request
+  // resolved. This overlays a same-tick optimistic status on top of
+  // submissionByTaskId below, cleared once the real request settles either
+  // way (reconciled with the server's row on success, rolled back on
+  // failure) -- a separate small map rather than synthesizing a fake
+  // TaskBoardSubmissionRow, since column placement only ever reads .status.
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, TaskBoardStatus>>({});
+  const movingTaskIds = useRef(new Set<string>());
 
   const submissionByTaskId = useMemo(() => {
     const map = new Map<string, TaskBoardSubmissionRow>();
     for (const submission of submissions) map.set(submission.task_id, submission);
     return map;
   }, [submissions]);
+
+  const statusForTask = useCallback(
+    (taskId: string): TaskBoardStatus => optimisticStatus[taskId] ?? submissionByTaskId.get(taskId)?.status ?? "todo",
+    [optimisticStatus, submissionByTaskId],
+  );
 
   const totalPointsEarned = useMemo(
     () => submissions.reduce((sum, s) => sum + (s.points_awarded ?? 0), 0),
@@ -291,10 +375,15 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
   // board isn't high-traffic enough to warrant threading that through just
   // to avoid one small extra request per action.
   const refreshCompletions = useCallback(async () => {
-    const res = await fetch("/api/task-board", { cache: "no-store" });
-    if (!res.ok) return;
-    const data = await res.json().catch(() => null);
-    if (data?.completions) setCompletions(data.completions);
+    try {
+      const res = await fetch("/api/task-board", { cache: "no-store" });
+      if (!res.ok) throw new Error("Task Board refresh failed");
+      const data = await res.json();
+      if (!data?.completions) throw new Error("Missing Task Board completions");
+      setCompletions(data.completions);
+    } catch {
+      setError("Could not refresh the Task Board. Reload to try again.");
+    }
   }, []);
 
   const applySubmission = useCallback(
@@ -307,20 +396,31 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
 
   const moveStatus = useCallback(
     async (taskId: string, status: "todo" | "progress" | "submitted") => {
+      if (movingTaskIds.current.has(taskId)) return;
+      movingTaskIds.current.add(taskId);
       setError(null);
-      const result = await postJson(taskId, { status });
-      if (!result.ok) {
-        setError(result.error ?? "Could not move task.");
-        return;
+      setOptimisticStatus((prev) => ({ ...prev, [taskId]: status }));
+      try {
+        const result = await postJson(taskId, { status });
+        if (!result.ok) {
+          setError(result.error ?? "Could not move task.");
+          return;
+        }
+        // Reconcile the saved row before clearing the optimistic move.
+        applySubmission(result.submission);
+      } catch {
+        setError("Could not move task. Check your connection and try again.");
+      } finally {
+        movingTaskIds.current.delete(taskId);
+        setOptimisticStatus((prev) => withoutKey(prev, taskId));
       }
-      applySubmission(result.submission);
     },
     [applySubmission],
   );
 
   const columns = COLUMN_DEFS.map((col) => ({
     ...col,
-    tasks: tasks.filter((task) => col.statuses.includes(submissionByTaskId.get(task.id)?.status ?? "todo")),
+    tasks: tasks.filter((task) => col.statuses.includes(statusForTask(task.id))),
   }));
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
@@ -385,7 +485,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                   const taskId = dragTaskId;
                   setDragTaskId(null);
                   if (!taskId) return;
-                  if ((submissionByTaskId.get(taskId)?.status ?? "todo") === "approved") return;
+                  if (statusForTask(taskId) === "approved") return;
                   void moveStatus(taskId, col.statuses[0] as "todo" | "progress" | "submitted");
                 }}
                 className={`flex min-h-[180px] flex-col gap-3 rounded-card-inner border-2 border-dashed p-2.5 transition-colors ${
@@ -408,15 +508,21 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                   // "send back" action, so together they mean "sent back
                   // for changes", not "student hasn't touched this yet".
                   const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
+                  const completedColor = completedCardColor(task, level, locked);
+                  const completedTextStyle = completedColor ? { color: completedColor.text } : undefined;
 
                   return (
                     <div
                       key={task.id}
-                      draggable={!locked && !notYetStarted}
+                      draggable={!locked && !notYetStarted && !optimisticStatus[task.id]}
+                      aria-busy={Boolean(optimisticStatus[task.id])}
                       onDragStart={() => setDragTaskId(task.id)}
                       onDragEnd={() => setDragTaskId(null)}
                       onClick={() => setSelectedTaskId(task.id)}
-                      style={{ borderLeft: `4px solid ${meta.borderVar}` }}
+                      style={{
+                        borderLeft: `4px solid ${meta.borderVar}`,
+                        ...(completedColor ? { backgroundColor: completedColor.bg, borderColor: completedColor.bg } : {}),
+                      }}
                       className={`flex flex-col gap-3 rounded-card border border-border-hairline bg-surface-card p-5 shadow-card transition-transform ${
                         notYetStarted ? "opacity-60" : ""
                       } ${
@@ -442,7 +548,10 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                               </span>
                             )}
                             {locked && (
-                              <span className="ml-auto font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase">
+                              <span
+                                style={completedTextStyle}
+                                className="ml-auto font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase"
+                              >
                                 Locked
                               </span>
                             )}
@@ -451,6 +560,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                       </div>
                       <div
                         dir={isArabicText(task.title) ? "rtl" : "ltr"}
+                        style={completedTextStyle}
                         className="font-display text-base font-bold tracking-tight text-text-strong text-pretty"
                       >
                         {task.title}
@@ -458,14 +568,17 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                       {completedBy.length > 0 && (
                         <div className="flex items-center gap-2">
                           <AvatarStack people={completedBy} />
-                          <span className="font-mono text-[10px] text-text-faint">
+                          <span style={completedTextStyle} className="font-mono text-[10px] text-text-faint">
                             {completedBy.length} {completedBy.length === 1 ? "student" : "students"} done
                           </span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between gap-2 border-t border-border-hairline pt-2.5">
-                        <span className="font-mono text-xs text-text-muted">{due ?? ""}</span>
-                        <span className="font-mono text-xs font-bold text-text-strong">{points}</span>
+                      <div
+                        className="flex items-center justify-between gap-2 border-t border-border-hairline pt-2.5"
+                        style={completedColor ? { borderColor: `${completedColor.text}33` } : undefined}
+                      >
+                        <span style={completedTextStyle} className="font-mono text-xs text-text-muted">{due ?? ""}</span>
+                        <span style={completedTextStyle} className="font-mono text-xs font-bold text-text-strong">{points}</span>
                       </div>
                     </div>
                   );
@@ -531,6 +644,7 @@ function TaskDetailModal({
   const screenshotsOk = !task.requires_screenshots || screenshotFiles.length > 0;
   const canSubmit = !busy && !locked && !notYetStarted && linkOk && primaryFilesOk && codeOk && screenshotsOk;
   const description = descriptionForLevel(task, level);
+  const descriptionItems = description ? descriptionListItems(description) : null;
   const checklist = checklistForLevel(task, level);
 
   // Previously submitted screenshots (if this task collects them) -- shown
@@ -607,6 +721,7 @@ function TaskDetailModal({
     onUpdated(result.submission);
     setPrimaryFiles({});
     setScreenshotFiles([]);
+    onClose();
   }
 
   async function openFile(kind: SubmissionFileKind) {
@@ -677,11 +792,23 @@ function TaskDetailModal({
           </div>
         )}
 
-        {description && (
-          <p dir={isArabicText(description) ? "rtl" : "ltr"} className="text-sm text-text-body text-pretty">
-            {description}
-          </p>
-        )}
+        {description &&
+          (descriptionItems ? (
+            <div className="flex flex-col gap-2 rounded-card-inner bg-surface-sunken p-4">
+              {descriptionItems.map((line, i) => (
+                <div key={i} className="flex items-start gap-2.5 text-sm text-text-body">
+                  <span className="mt-0.5 flex-none font-mono text-xs font-bold text-text-faint">{i + 1}.</span>
+                  <span dir={isArabicText(line) ? "rtl" : "ltr"} className="text-pretty">
+                    {line}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p dir={isArabicText(description) ? "rtl" : "ltr"} className="text-sm text-text-body text-pretty">
+              {description}
+            </p>
+          ))}
 
         {checklist.length > 0 && (
           <div className="flex flex-col gap-2 rounded-card-inner bg-surface-sunken p-4">
@@ -813,36 +940,41 @@ function TaskDetailModal({
                     </div>
                   )}
 
-                  {PRIMARY_FILE_KINDS.filter((meta) => taskRequiresKind(task, meta.kind)).map((meta) => (
-                    <div key={meta.kind} className="flex flex-col gap-1.5">
-                      <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center">
-                        <span className="text-sm font-semibold text-text-strong">
-                          {primaryFiles[meta.kind] ? primaryFiles[meta.kind]!.name : `Choose a ${meta.label.toLowerCase()} to upload`}
-                        </span>
-                        <span className="text-xs text-text-muted">{meta.label.toUpperCase()} · up to 300 MB</span>
-                        <label className="mt-1 inline-flex h-8 cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
-                          Choose file
-                          <input
-                            type="file"
-                            accept={meta.accept}
-                            className="hidden"
-                            onChange={(e) =>
-                              setPrimaryFiles((prev) => ({ ...prev, [meta.kind]: e.target.files?.[0] ?? undefined }))
-                            }
-                          />
-                        </label>
+                  {PRIMARY_FILE_KINDS.filter((meta) => taskRequiresKind(task, meta.kind)).map((meta) => {
+                    const customLabel = submissionLabelForKind(task, meta.kind);
+                    return (
+                      <div key={meta.kind} className="flex flex-col gap-1.5">
+                        <div className="flex flex-col items-center gap-2 rounded-card border-2 border-dashed border-border-hairline-strong bg-surface-sunken p-6 text-center">
+                          <span className="text-sm font-semibold text-text-strong">
+                            {primaryFiles[meta.kind]
+                              ? primaryFiles[meta.kind]!.name
+                              : (customLabel ?? `Choose a ${meta.label.toLowerCase()} to upload`)}
+                          </span>
+                          <span className="text-xs text-text-muted">{meta.label.toUpperCase()} · up to 300 MB</span>
+                          <label className="mt-1 inline-flex h-8 cursor-pointer items-center rounded-control border border-border-hairline-strong bg-surface-card px-3 text-xs font-semibold text-text-strong">
+                            Choose file
+                            <input
+                              type="file"
+                              accept={meta.accept}
+                              className="hidden"
+                              onChange={(e) =>
+                                setPrimaryFiles((prev) => ({ ...prev, [meta.kind]: e.target.files?.[0] ?? undefined }))
+                              }
+                            />
+                          </label>
+                        </div>
+                        {submissionFileNameForKind(submission, meta.kind) && (
+                          <button
+                            type="button"
+                            onClick={() => openFile(meta.kind)}
+                            className="self-start text-xs font-semibold text-text-accent underline"
+                          >
+                            View current {meta.label.toLowerCase()}
+                          </button>
+                        )}
                       </div>
-                      {submissionFileNameForKind(submission, meta.kind) && (
-                        <button
-                          type="button"
-                          onClick={() => openFile(meta.kind)}
-                          className="self-start text-xs font-semibold text-text-accent underline"
-                        >
-                          View current {meta.label.toLowerCase()}
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </>
               )}
 
@@ -861,7 +993,7 @@ function TaskDetailModal({
                       dir="ltr"
                       value={code}
                       onChange={(e) => setCode(e.target.value)}
-                      placeholder="Paste your code here"
+                      placeholder={task.submission_code_placeholder ?? "Paste your code here"}
                       rows={6}
                       className="rounded-control border border-border-hairline-strong bg-surface-card p-3 font-mono text-xs text-text-strong"
                     />
@@ -931,7 +1063,7 @@ function TaskDetailModal({
                   dir={isArabicText(note) ? "rtl" : "ltr"}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Optional note for the reviewer"
+                  placeholder="هل لديك ملاحظة؟"
                   rows={2}
                   className="rounded-control border border-border-hairline bg-surface-card p-3 text-sm text-text-body"
                 />

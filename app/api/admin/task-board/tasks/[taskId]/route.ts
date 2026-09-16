@@ -7,6 +7,7 @@ import {
   type ParsedLevel,
   type ParsedResource,
   parseDate,
+  parseHexColor,
   parseLevel,
   parseResource,
 } from "@/lib/taskBoardValidation";
@@ -70,6 +71,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
   }
   const submissionLinkLabel =
     typeof body.submissionLinkLabel === "string" && body.submissionLinkLabel.trim() ? body.submissionLinkLabel.trim() : null;
+  const submissionPdfLabel =
+    typeof body.submissionPdfLabel === "string" && body.submissionPdfLabel.trim() ? body.submissionPdfLabel.trim() : null;
+  const submissionImageLabel =
+    typeof body.submissionImageLabel === "string" && body.submissionImageLabel.trim() ? body.submissionImageLabel.trim() : null;
+  const submissionVideoLabel =
+    typeof body.submissionVideoLabel === "string" && body.submissionVideoLabel.trim() ? body.submissionVideoLabel.trim() : null;
+  const submissionFileLabel =
+    typeof body.submissionFileLabel === "string" && body.submissionFileLabel.trim() ? body.submissionFileLabel.trim() : null;
+  const submissionCodePlaceholder =
+    typeof body.submissionCodePlaceholder === "string" && body.submissionCodePlaceholder.trim()
+      ? body.submissionCodePlaceholder.trim()
+      : null;
+
+  const completedColorBaseResult = parseHexColor(body.completedColorBase, "Base completed color");
+  if ("error" in completedColorBaseResult) return Response.json({ error: completedColorBaseResult.error }, { status: 400 });
+  const completedColorMediumResult = parseHexColor(body.completedColorMedium, "Medium completed color");
+  if ("error" in completedColorMediumResult) return Response.json({ error: completedColorMediumResult.error }, { status: 400 });
 
   const startAtResult = parseDate(body.startAt, "start date");
   if ("error" in startAtResult) return Response.json({ error: startAtResult.error }, { status: 400 });
@@ -161,7 +179,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
       requires_video: requiresVideo,
       requires_file: requiresFile,
       submission_link_label: submissionLinkLabel,
+      submission_pdf_label: submissionPdfLabel,
+      submission_image_label: submissionImageLabel,
+      submission_video_label: submissionVideoLabel,
+      submission_file_label: submissionFileLabel,
       requires_code: requiresCode,
+      submission_code_placeholder: submissionCodePlaceholder,
       requires_screenshots: requiresScreenshots,
       points_base: parsedLevels.base.points,
       points_medium: parsedLevels.medium.points,
@@ -172,6 +195,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
       checklist_base: parsedLevels.base.checklist,
       checklist_medium: parsedLevels.medium.checklist,
       checklist_hard: parsedLevels.hard.checklist,
+      completed_color_base: parsedLevels.base.enabled ? completedColorBaseResult.value : null,
+      completed_color_medium: parsedLevels.medium.enabled ? completedColorMediumResult.value : null,
     })
     .eq("id", taskId)
     .select()
