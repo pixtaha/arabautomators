@@ -12,6 +12,12 @@ services:
     env_file:
       - .env
     environment:
+      # Internal-network URL for server-side Supabase calls (proxy.ts,
+      # lib/supabase/server.ts, lib/supabase/admin.ts) -- bypasses the public
+      # domain's DNS/TLS/Traefik round-trip since supabase-envoy already
+      # sits on arabautomators-net. Not NEXT_PUBLIC_-prefixed: the browser
+      # must keep using the public URL, it can't reach this network at all.
+      SUPABASE_INTERNAL_URL: "http://supabase-envoy:8000"
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       BUNNY_STREAM_LIBRARY_ID: ${BUNNY_STREAM_LIBRARY_ID}
       BUNNY_STREAM_API_KEY: ${BUNNY_STREAM_API_KEY}

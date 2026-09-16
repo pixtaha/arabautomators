@@ -4,8 +4,15 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function refreshSupabaseSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // See lib/supabase/server.ts for why: internal Docker-network URL for
+  // server-side calls, coupled to supabase-envoy's container name/port (an
+  // implementation detail of the separately-managed supabase-arabautomators
+  // stack, not a stable public interface), falling back to the public URL.
+  // This runs on nearly every request, so it's the highest-volume caller.
+  const supabaseUrl = process.env.SUPABASE_INTERNAL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    supabaseUrl,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
