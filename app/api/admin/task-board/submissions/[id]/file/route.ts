@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicSignedUrl } from "@/lib/supabase/signedStorageUrl";
 import { SUBMISSION_FILE_KIND_COLUMNS, type SubmissionFileKind } from "@/lib/data/taskBoard";
 
 const BUCKET = "task-board-submissions";
@@ -26,30 +27,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const kind = parseKind(new URL(request.url).searchParams.get("type"));
   if (!kind) return Response.json({ error: "Invalid file type." }, { status: 400 });
-  const { path: pathCol, name: nameCol } = SUBMISSION_FILE_KIND_COLUMNS[kind];
+  const { path: pathCol } = SUBMISSION_FILE_KIND_COLUMNS[kind];
 
   const supabase = createAdminClient();
-  // Static column list, not a dynamic `${pathCol}, ${nameCol}` template --
-  // see the student-side route for why (a dynamic select string can't be
-  // parsed at the type level, degrading to an unindexable union).
+  // Static column list, not a dynamic `${pathCol}` template -- see the
+  // student-side route for why (a dynamic select string can't be parsed at
+  // the type level, degrading to an unindexable union).
   const { data: submission } = await supabase
     .from("task_board_submissions")
     .select(
-      "submission_file_path, submission_file_name, submission_pdf_path, submission_pdf_name, submission_image_path, submission_image_name, submission_video_path, submission_video_name",
+      "submission_file_path, submission_pdf_path, submission_image_path, submission_video_path",
     )
     .eq("id", id)
     .maybeSingle();
 
   const submissionFields = submission as Record<string, string | null> | null;
   const filePath = submissionFields?.[pathCol] ?? null;
-  const fileName = submissionFields?.[nameCol] ?? null;
   if (!filePath) {
     return Response.json({ error: "No file for this submission." }, { status: 404 });
   }
 
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS, { download: fileName ?? undefined });
+  // No `download` option -- the admin "Open" button (and the Screenshots
+  // gallery next door) is meant to preview the file in a new tab, not force
+  // a Save As dialog. Supabase only sets Content-Disposition: attachment
+  // when a signed URL is minted with `download`, so omitting it lets the
+  // browser render the file inline per its own Content-Type.
+  const { data, error } = await createPublicSignedUrl(supabase, BUCKET, filePath, SIGNED_URL_TTL_SECONDS);
 
   if (error || !data) return Response.json({ error: "Could not create link." }, { status: 500 });
   return Response.json({ url: data.signedUrl }, { headers: { "Cache-Control": "private, no-store" } });

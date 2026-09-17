@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicSignedUrls } from "@/lib/supabase/signedStorageUrl";
 import { getSubmissionFiles } from "@/lib/data/taskBoard";
 
 const BUCKET = "task-board-submissions";
@@ -21,12 +22,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (fileRows.length === 0) return Response.json({ files: [] });
 
   const supabase = createAdminClient();
-  const { data: signed, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrls(
-      fileRows.map((f) => f.file_path),
-      SIGNED_URL_TTL_SECONDS,
-    );
+  const { data: signed, error } = await createPublicSignedUrls(
+    supabase,
+    BUCKET,
+    fileRows.map((f) => f.file_path),
+    SIGNED_URL_TTL_SECONDS,
+  );
   if (error || !signed) return Response.json({ error: "Could not create links." }, { status: 500 });
 
   const files = fileRows.map((f, i) => ({

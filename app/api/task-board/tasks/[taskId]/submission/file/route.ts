@@ -1,5 +1,6 @@
 import { getActiveDeviceSession } from "@/lib/auth/device-session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicSignedUrl } from "@/lib/supabase/signedStorageUrl";
 import { SUBMISSION_FILE_KIND_COLUMNS, type SubmissionFileKind } from "@/lib/data/taskBoard";
 
 const BUCKET = "task-board-submissions";
@@ -51,9 +52,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ task
     return Response.json({ error: "No file for this task." }, { status: 404 });
   }
 
-  const { data, error } = await admin.storage
-    .from(BUCKET)
-    .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS, { download: fileName ?? undefined });
+  const { data, error } = await createPublicSignedUrl(admin, BUCKET, filePath, SIGNED_URL_TTL_SECONDS, {
+    download: fileName ?? undefined,
+  });
 
   if (error || !data) return Response.json({ error: "Could not create link." }, { status: 500 });
   return Response.json({ url: data.signedUrl }, { headers: { "Cache-Control": "private, no-store" } });

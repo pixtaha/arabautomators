@@ -398,17 +398,26 @@ function SubmissionReviewCard({
             Screenshots ({screenshots.length})
           </span>
           <div className="flex flex-wrap gap-2">
-            {screenshots.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => f.url && window.open(f.url, "_blank", "noopener,noreferrer")}
-                className="h-16 w-16 flex-none overflow-hidden rounded-control border border-border-hairline-strong bg-surface-sunken"
-                title={f.name}
-              >
-                {f.url && <img src={f.url} alt={f.name} className="h-full w-full object-cover" />}
-              </button>
-            ))}
+            {screenshots.map((f) =>
+              f.url ? (
+                <a
+                  key={f.id}
+                  href={f.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-16 w-16 flex-none overflow-hidden rounded-control border border-border-hairline-strong bg-surface-sunken"
+                  title={f.name}
+                >
+                  <img src={f.url} alt={f.name} className="h-full w-full object-cover" />
+                </a>
+              ) : (
+                <div
+                  key={f.id}
+                  className="h-16 w-16 flex-none overflow-hidden rounded-control border border-border-hairline-strong bg-surface-sunken"
+                  title={f.name}
+                />
+              ),
+            )}
           </div>
         </div>
       )}
