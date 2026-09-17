@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { publicStorageUrl } from "@/lib/supabase/publicStorageUrl";
 import { getActiveDeviceSession } from "@/lib/auth/device-session";
 import { cookies } from "next/headers";
 import {
@@ -57,9 +58,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Could not upload image." }, { status: 500 });
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("avatars").getPublicUrl(path);
+  const publicUrl = publicStorageUrl("avatars", path);
 
   // The storage object lives at a stable, upserted path, but Supabase
   // Storage serves it with `Cache-Control: max-age=3600` and no revalidation

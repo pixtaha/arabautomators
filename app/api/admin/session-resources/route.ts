@@ -9,6 +9,7 @@ import {
   withoutVideoFileUrl,
 } from "@/lib/sessionResources";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { publicStorageUrl } from "@/lib/supabase/publicStorageUrl";
 
 const BUCKET = "session-resources";
 const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video", "link"] as const;
@@ -181,9 +182,7 @@ export async function POST(request: Request) {
     return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const publicUrl = publicStorageUrl(BUCKET, path);
 
   const { count } = await supabase
     .from("session_resources")

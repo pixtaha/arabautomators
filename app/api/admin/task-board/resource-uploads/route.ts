@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { publicStorageUrl } from "@/lib/supabase/publicStorageUrl";
 
 const BUCKET = "task-board-resources";
 // Illustrative reference material, not a deliverable -- smaller than the
@@ -58,9 +59,7 @@ export async function POST(request: Request) {
     return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const publicUrl = publicStorageUrl(BUCKET, path);
 
   return Response.json({ url: publicUrl });
 }
