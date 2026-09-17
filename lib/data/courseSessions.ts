@@ -39,6 +39,7 @@ export interface SessionResourceRow {
   video_provider: "vdocipher" | null;
   vdocipher_video_id: string | null;
   order_index: number;
+  display_order: number | null;
   file_size_bytes: number | null;
   page_count: number | null;
 }
@@ -79,7 +80,14 @@ export async function getCourseSessionData(sessionId: string): Promise<CourseSes
       ? supabase.from("sessions").select("*").eq("module_id", session.module_id).order("order_index")
       : Promise.resolve({ data: [] }),
     session.module_id
-      ? supabase.from("session_resources").select("*").eq("module_id", session.module_id).order("order_index")
+      ? supabase
+          .from("session_resources")
+          .select("*")
+          .eq("module_id", session.module_id)
+          // Same ordering as the admin list (app/api/admin/session-resources/route.ts)
+          // so the admin can preview the order students will actually see.
+          .order("display_order", { nullsFirst: false })
+          .order("order_index")
       : Promise.resolve({ data: [] }),
     supabase.from("session_video_parts").select("*").eq("session_id", sessionId).order("order_index"),
   ]);

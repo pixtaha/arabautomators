@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useSessionVideo } from "@/components/course/SessionVideoContext";
+import { TextNoteModal } from "@/components/course/TextNoteModal";
 import { VoiceNoteCard } from "@/components/course/VoiceNoteCard";
 import { WorkflowResourceCard } from "@/components/course/WorkflowResourceCard";
 import type { SessionResourceRow } from "@/lib/data/courseSessions";
@@ -33,6 +35,20 @@ function PlayIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" className="ml-0.5 h-3.5 w-3.5" aria-hidden="true">
       <path d="M4 2.5v11l9-5.5-9-5.5z" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
+      <path
+        d="M6.5 3H3v10h10V9.5M9.5 2.5H13.5V6.5M13 3L7 9"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -71,6 +87,7 @@ function DocumentItem({ resource }: { resource: SessionResourceRow }) {
 }
 
 function NoteItem({ resource, index }: { resource: SessionResourceRow; index: number }) {
+  const [open, setOpen] = useState(false);
   const badge = (
     <span
       className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-xs font-bold text-text-strong"
@@ -82,15 +99,17 @@ function NoteItem({ resource, index }: { resource: SessionResourceRow; index: nu
 
   if (resource.file_url) {
     return (
-      <a
-        href={resource.file_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-3 rounded-card-inner bg-surface-sunken p-3 text-sm text-text-body transition-colors hover:bg-surface-hover"
-      >
-        {badge}
-        <span className="min-w-0 flex-1 truncate">{resource.title}</span>
-      </a>
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center gap-3 rounded-card-inner bg-surface-sunken p-3 text-left text-sm text-text-body transition-colors hover:bg-surface-hover"
+        >
+          {badge}
+          <span className="min-w-0 flex-1 truncate">{resource.title}</span>
+        </button>
+        {open && <TextNoteModal resource={resource} onClose={() => setOpen(false)} />}
+      </>
     );
   }
 
@@ -99,6 +118,23 @@ function NoteItem({ resource, index }: { resource: SessionResourceRow; index: nu
       {badge}
       <span className="min-w-0 flex-1 truncate">{resource.title}</span>
     </div>
+  );
+}
+
+function LinkItem({ resource }: { resource: SessionResourceRow }) {
+  if (!resource.file_url) return null;
+  return (
+    <a
+      href={resource.file_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 rounded-card-inner bg-surface-sunken p-3 text-sm text-text-body transition-colors hover:bg-surface-hover"
+    >
+      <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-strong">
+        <ExternalLinkIcon />
+      </span>
+      <span className="min-w-0 flex-1 truncate font-semibold text-text-strong">{resource.title}</span>
+    </a>
   );
 }
 
@@ -162,6 +198,7 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
           if (resource.type === "workflow_file") {
             return <WorkflowResourceCard key={resource.id} title={resource.title} fileUrl={resource.file_url} />;
           }
+          if (resource.type === "link") return <LinkItem key={resource.id} resource={resource} />;
           if (isVideoResource(resource.type)) return <VideoItem key={resource.id} resource={resource} />;
           return null;
         })}

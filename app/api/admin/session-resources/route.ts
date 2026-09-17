@@ -11,7 +11,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "session-resources";
-const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video"] as const;
+const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video", "link"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -32,8 +32,12 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("session_resources")
-    .select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count")
+    .select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, display_order, file_size_bytes, page_count")
     .eq("module_id", moduleId)
+    // display_order is an optional admin override (null = "use the default
+    // order"); nullsFirst: false keeps unset rows in their existing
+    // order_index-based position instead of jumping to the front.
+    .order("display_order", { nullsFirst: false })
     .order("order_index");
 
   if (error) return Response.json({ error: "Could not load resources." }, { status: 500 });
@@ -62,6 +66,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "Title is required." }, { status: 400 });
   }
 
+  // Optional admin override, applies to every resource type -- parsed once
+  // here rather than per-branch so every insert below shares the same
+  // validation.
+  let displayOrder: number | null = null;
+  const displayOrderRaw = formData.get("displayOrder");
+  if (typeof displayOrderRaw === "string" && displayOrderRaw.trim()) {
+    const parsed = Number(displayOrderRaw);
+    if (!Number.isInteger(parsed)) {
+      return Response.json({ error: "Display order must be a whole number." }, { status: 400 });
+    }
+    displayOrder = parsed;
+  }
+
   const supabase = createAdminClient();
   if (isVideoResource(type)) {
     const link = parseVideoLink({
@@ -81,10 +98,38 @@ export async function POST(request: Request) {
     if (orderError) return Response.json({ error: "Could not save resource." }, { status: 500 });
     const { data: resource, error } = await supabase.from("session_resources").insert({
       module_id: moduleId, type, title: title.trim(), ...videoResourceFields(link.source),
-      file_url: null, order_index: (last?.[0]?.order_index ?? -1) + 1,
-    }).select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, file_size_bytes, page_count").single();
+      file_url: null, order_index: (last?.[0]?.order_index ?? -1) + 1, display_order: displayOrder,
+    }).select("id, type, title, file_url, video_provider, vdocipher_video_id, order_index, display_order, file_size_bytes, page_count").single();
     if (error || !resource) return Response.json({ error: "Could not save resource." }, { status: 500 });
     return Response.json({ resource: withoutVideoFileUrl(resource) });
+  }
+
+  // Link: stores only a URL in file_url, same field every other
+  // file_url-bearing type already uses to mean "the URL this resource
+  // opens" -- no storage upload involved, so this returns early rather
+  // than falling into the upload logic below.
+  if (type === "link") {
+    const linkUrlRaw = formData.get("linkUrl");
+    if (typeof linkUrlRaw !== "string" || !linkUrlRaw.trim()) {
+      return Response.json({ error: "Link URL is required." }, { status: 400 });
+    }
+    let normalizedUrl: string;
+    try {
+      normalizedUrl = new URL(linkUrlRaw.trim()).toString();
+    } catch {
+      return Response.json({ error: "Enter a valid URL." }, { status: 400 });
+    }
+    const { count } = await supabase
+      .from("session_resources")
+      .select("*", { count: "exact", head: true })
+      .eq("module_id", moduleId);
+    const { data: resource, error } = await supabase
+      .from("session_resources")
+      .insert({ module_id: moduleId, type, title: title.trim(), file_url: normalizedUrl, order_index: count ?? 0, display_order: displayOrder })
+      .select("id, type, title, file_url, order_index, display_order, file_size_bytes, page_count")
+      .single();
+    if (error || !resource) return Response.json({ error: "Could not save resource." }, { status: 500 });
+    return Response.json({ resource });
   }
 
   let pageCount: number | null = null;
@@ -153,10 +198,11 @@ export async function POST(request: Request) {
       title: title.trim(),
       file_url: publicUrl,
       order_index: count ?? 0,
+      display_order: displayOrder,
       file_size_bytes: uploadBlob.size,
       page_count: pageCount,
     })
-    .select("id, type, title, file_url, order_index, file_size_bytes, page_count")
+    .select("id, type, title, file_url, order_index, display_order, file_size_bytes, page_count")
     .single();
 
   if (insertError || !inserted) {

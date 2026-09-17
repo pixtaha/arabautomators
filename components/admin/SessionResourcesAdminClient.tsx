@@ -22,6 +22,7 @@ const RESOURCE_TYPES = [
   { value: "text", label: "Text note" },
   { value: "video", label: "General session video" },
   { value: "credential_video", label: "Credential setup video" },
+  { value: "link", label: "Link" },
 ] as const;
 
 type ResourceType = (typeof RESOURCE_TYPES)[number]["value"];
@@ -41,6 +42,7 @@ interface ResourceRow {
   video_provider: VideoProvider | null;
   vdocipher_video_id: string | null;
   order_index: number;
+  display_order: number | null;
   file_size_bytes: number | null;
   page_count: number | null;
 }
@@ -121,7 +123,9 @@ export function SessionResourcesAdminClient() {
   const [videoLink, setVideoLink] = useState(() => videoLinkDraft());
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [replacementVideoLink, setReplacementVideoLink] = useState(() => videoLinkDraft());
+  const [linkUrl, setLinkUrl] = useState("");
   const [pageCount, setPageCount] = useState("");
+  const [displayOrder, setDisplayOrder] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -204,12 +208,28 @@ export function SessionResourcesAdminClient() {
       const parsed = parseVideoLink(videoLink);
       if (parsed.error) { setFormError(parsed.error); return; }
     }
-    if (type !== "text" && !isVideoResource(type) && !file) {
+    if (type === "link") {
+      if (!linkUrl.trim()) {
+        setFormError("Link URL is required.");
+        return;
+      }
+      try {
+        new URL(linkUrl.trim());
+      } catch {
+        setFormError("Enter a valid URL.");
+        return;
+      }
+    }
+    if (type !== "text" && type !== "link" && !isVideoResource(type) && !file) {
       setFormError("Choose a file to upload.");
       return;
     }
     if (!isVideoResource(type) && file && file.size > SESSION_RESOURCE_MAX_FILE_SIZE_BYTES) {
       setFormError(`File must be ${SESSION_RESOURCE_MAX_FILE_SIZE_LABEL} or smaller.`);
+      return;
+    }
+    if (displayOrder.trim() && !Number.isInteger(Number(displayOrder))) {
+      setFormError("Display order must be a whole number.");
       return;
     }
 
@@ -221,15 +241,20 @@ export function SessionResourcesAdminClient() {
       formData.append("text", text);
     } else if (isVideoResource(type)) {
       formData.append("vdocipherVideoId", videoLink.vdocipherVideoId.trim());
+    } else if (type === "link") {
+      formData.append("linkUrl", linkUrl.trim());
     } else if (file) {
       formData.append("file", file);
     }
     if (type === "pdf" && pageCount.trim()) {
       formData.append("pageCount", pageCount.trim());
     }
+    if (displayOrder.trim()) {
+      formData.append("displayOrder", displayOrder.trim());
+    }
 
     setSubmitting(true);
-    setUploadProgress(type === "text" || isVideoResource(type) ? null : 0);
+    setUploadProgress(type === "text" || type === "link" || isVideoResource(type) ? null : 0);
 
     try {
       const { status, data } = await uploadSessionResource(formData, (percent) => {
@@ -241,11 +266,13 @@ export function SessionResourcesAdminClient() {
         return;
       }
 
-      setFormSuccess(`${isVideoResource(type) ? "Linked" : "Uploaded"} "${data.resource.title}".`);
+      setFormSuccess(`${isVideoResource(type) || type === "link" ? "Linked" : "Uploaded"} "${data.resource.title}".`);
       setTitle("");
       setText("");
       setVideoLink(videoLinkDraft());
+      setLinkUrl("");
       setPageCount("");
+      setDisplayOrder("");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       loadResources(selectedModuleId);
@@ -511,6 +538,16 @@ export function SessionResourcesAdminClient() {
                         className="w-full resize-y rounded-control border border-border-hairline-strong bg-surface-card p-3.5 text-sm text-text-body outline-none focus:border-surface-brand focus:ring-2 focus:ring-surface-brand/25"
                       />
                     </div>
+                  ) : type === "link" ? (
+                    <Input
+                      id="resource-link-url"
+                      label="Link URL"
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      placeholder="https://"
+                      disabled={submitting}
+                    />
                   ) : (
                     <div className="flex flex-col gap-1.5">
                       <label htmlFor="resource-file" className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
@@ -555,6 +592,16 @@ export function SessionResourcesAdminClient() {
                     />
                   )}
 
+                  <Input
+                    label="Display order (optional)"
+                    type="number"
+                    step="1"
+                    value={displayOrder}
+                    onChange={(e) => setDisplayOrder(e.target.value)}
+                    placeholder="Leave blank to add at the end"
+                    disabled={submitting}
+                  />
+
                   {uploadProgress !== null && (
                     <div className="flex flex-col gap-2 rounded-control border border-border-hairline-strong bg-surface-sunken px-3.5 py-3">
                       <div className="flex items-center justify-between gap-3 text-xs font-medium text-text-body">
@@ -581,7 +628,7 @@ export function SessionResourcesAdminClient() {
                   {formSuccess && <p className="text-xs font-medium text-text-accent">{formSuccess}</p>}
 
                   <Button type="submit" disabled={submitting} className="self-start">
-                    {submitting ? "Saving…" : isVideoResource(type) ? "Link video" : "Upload resource"}
+                    {submitting ? "Saving…" : isVideoResource(type) ? "Link video" : type === "link" ? "Save link" : "Upload resource"}
                   </Button>
                 </form>
 
