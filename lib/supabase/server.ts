@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { SUPABASE_AUTH_COOKIE_NAME } from './authCookieName'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -12,12 +13,18 @@ export async function createClient() {
   // supabase-arabautomators stack, not a stable public interface -- if that
   // stack is ever restructured or renamed, this needs updating. Falls back
   // to the public URL when unset (e.g. local dev without that network).
+  //
+  // cookieOptions.name is pinned via SUPABASE_AUTH_COOKIE_NAME -- see that
+  // file for why: without it, this client's cookie name would depend on
+  // this URL's hostname and diverge from the browser client's, which always
+  // uses the public URL.
   const supabaseUrl = process.env.SUPABASE_INTERNAL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
 
   return createServerClient(
     supabaseUrl,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { name: SUPABASE_AUTH_COOKIE_NAME },
       cookies: {
         getAll() {
           return cookieStore.getAll()

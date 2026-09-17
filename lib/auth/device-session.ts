@@ -65,19 +65,78 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchIdentityOnce() {
+// Next.js's own control-flow signals (redirect(), notFound(), and the
+// static-generation "can this route be static" probe that cookies() trips)
+// are plain thrown Errors tagged with a `digest`, and can pass through this
+// module's try/catch since it calls cookies() via createClient(). They are
+// never a Supabase error and always need to keep propagating untouched --
+// this only decides what NOT to log, so the diagnostics below don't get
+// confused by them. Matches Next's own detection exactly: redirect-error.js
+// and http-access-fallback.js both split the digest on ";" and compare only
+// the first segment by strict equality -- not a prefix match on the raw
+// string, which could over-match a future digest that merely starts with
+// the same characters before its own ";". DYNAMIC_SERVER_USAGE (from
+// hooks-server-context.js) carries no ";"-delimited suffix, so splitting it
+// is a no-op and exact equality still applies.
+function isNextInternalControlFlowError(error: unknown): boolean {
+  const digest = (error as { digest?: unknown } | null)?.digest;
+  if (typeof digest !== "string") return false;
+  const code = digest.split(";", 1)[0];
+  return code === "DYNAMIC_SERVER_USAGE" || code === "NEXT_REDIRECT" || code === "NEXT_HTTP_ERROR_FALLBACK";
+}
+
+// Temporary diagnostic: captures whatever fields exist on a Supabase error so
+// we can see the exact status/code/message for the identity-check failures
+// that don't fit the concurrent-refresh shape, instead of them collapsing
+// into an unexplained "no-identity" denial with zero detail (as happened on
+// 2026-09-15T01:44). Safe against non-Error/non-object throws too.
+function describeError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as { name?: unknown; message?: unknown; status?: unknown; code?: unknown };
+    return JSON.stringify({
+      name: typeof e.name === "string" ? e.name : undefined,
+      message: typeof e.message === "string" ? e.message : undefined,
+      status: e.status,
+      code: e.code,
+    });
+  }
+  return JSON.stringify({ value: String(error) });
+}
+
+async function fetchIdentityOnce(attempt: 1 | 2) {
+  // Diagnostic only, names not values -- distinguishes "the auth cookie
+  // genuinely wasn't sent on this request" (a browser/client-side question)
+  // from "it was present but getUser() still reported no session" (a
+  // server-side parsing/validation question), for AuthSessionMissingError.
+  const cookieNames = (await cookies()).getAll().map((c) => c.name);
+  console.warn(`[device-session] attempt=${attempt} cookies present: ${cookieNames.join(", ") || "(none)"}`);
+
   const supabase = await createClient();
 
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  if (claimsError) {
+    console.warn(`[device-session] attempt=${attempt} getClaims() error: ${describeError(claimsError)}`);
+  }
   if (isConcurrentRefreshConflict(claimsError)) throw claimsError;
 
   const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    console.warn(`[device-session] attempt=${attempt} getUser() error: ${describeError(userError)}`);
+  }
   if (isConcurrentRefreshConflict(userError)) throw userError;
 
   const user = userData.user;
   const authSessionId = claimsData?.claims?.session_id;
 
-  if (!user || typeof authSessionId !== "string") return null;
+  if (!user || typeof authSessionId !== "string") {
+    // The case that produced an unexplained "no-identity" denial last time:
+    // no thrown error at all, just an unusable result. Log what we actually
+    // got so a repeat is diagnosable instead of another silent null.
+    console.warn(
+      `[device-session] attempt=${attempt} fetchIdentityOnce returning null: hasUser=${Boolean(user)} authSessionIdType=${typeof authSessionId} claimsError=${claimsError ? describeError(claimsError) : "none"} userError=${userError ? describeError(userError) : "none"}`,
+    );
+    return null;
+  }
   return { user, authSessionId };
 }
 
@@ -96,14 +155,27 @@ async function fetchIdentityOnce() {
 // itself rather than relying on caching to cover Route Handler callers.
 const getAuthenticatedIdentity = cache(async function getAuthenticatedIdentity() {
   try {
-    return await fetchIdentityOnce();
+    return await fetchIdentityOnce(1);
   } catch (error) {
+    if (isNextInternalControlFlowError(error)) throw error;
+    console.warn(`[device-session] attempt=1 threw: ${describeError(error)}`);
     if (!isConcurrentRefreshConflict(error)) throw error;
     // One retry, after giving the winning refresh a moment to land. If it
     // conflicts again, let it throw -- surface a failed request rather than
     // silently reporting "no session" and triggering a false logout.
     await wait(CONCURRENT_REFRESH_RETRY_BASE_MS + Math.random() * CONCURRENT_REFRESH_RETRY_JITTER_MS);
-    return await fetchIdentityOnce();
+    try {
+      const result = await fetchIdentityOnce(2);
+      console.warn(`[device-session] retry ${result ? "succeeded" : "returned null (see attempt=2 log above)"}`);
+      return result;
+    } catch (retryError) {
+      if (isNextInternalControlFlowError(retryError)) throw retryError;
+      const sameErrorShape = describeError(retryError) === describeError(error);
+      console.warn(
+        `[device-session] retry threw ${sameErrorShape ? "the SAME error as attempt 1" : "a DIFFERENT error than attempt 1"}: ${describeError(retryError)}`,
+      );
+      throw retryError;
+    }
   }
 });
 
@@ -111,13 +183,21 @@ export async function getActiveDeviceSession({
   touch = true,
 }: { touch?: boolean } = {}): Promise<ActiveDeviceSession | null> {
   const [identity, cookieStore] = await Promise.all([getAuthenticatedIdentity(), cookies()]);
-  const deviceToken = cookieStore.get(DEVICE_TOKEN_COOKIE)?.value;
 
-  if (!identity || !deviceToken) return null;
+  if (!identity) {
+    console.warn("[device-session] denied: reason=no-identity");
+    return null;
+  }
+
+  const deviceToken = cookieStore.get(DEVICE_TOKEN_COOKIE)?.value;
+  if (!deviceToken) {
+    console.warn(`[device-session] denied: reason=no-device-cookie user=${identity.user.id}`);
+    return null;
+  }
 
   const hash = tokenHash(deviceToken);
   const admin = createAdminClient();
-  const { data: deviceSession } = await admin
+  const { data: deviceSession, error: deviceSessionError } = await admin
     .from("user_device_sessions")
     .select("id")
     .eq("user_id", identity.user.id)
@@ -127,7 +207,24 @@ export async function getActiveDeviceSession({
     .eq("is_active", true)
     .maybeSingle();
 
-  if (!deviceSession) return null;
+  // A failed lookup (timeout, contention, a dropped connection) is not
+  // evidence the device session is invalid -- postgrest-js already retries
+  // network errors and 503/520 responses up to 3 times internally, so
+  // whatever reaches here survived that and is worth failing loudly over.
+  // Silently falling through to "not found" is exactly the bug that caused
+  // the 2026-09-14 dashboard incident: the row was still active in the DB
+  // the whole time, this lookup just failed to report it under load.
+  if (deviceSessionError) {
+    console.error(
+      `[device-session] user_device_sessions lookup failed user=${identity.user.id}: ${deviceSessionError.message}`,
+    );
+    throw deviceSessionError;
+  }
+
+  if (!deviceSession) {
+    console.warn(`[device-session] denied: reason=no-active-row user=${identity.user.id}`);
+    return null;
+  }
 
   if (touch) {
     await admin.rpc("touch_user_device_session", {
