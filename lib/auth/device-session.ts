@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { SUPABASE_AUTH_COOKIE_NAME } from "@/lib/supabase/authCookieName";
 
 export const DEVICE_TOKEN_COOKIE = "aa-device-token";
 export const DEVICE_TOKEN_MAX_AGE = 60 * 60 * 24 * 365;
@@ -103,13 +104,85 @@ function describeError(error: unknown): string {
   return JSON.stringify({ value: String(error) });
 }
 
+// Temporary diagnostic (2026-09-17 AuthSessionMissingError investigation):
+// reconstructs the auth cookie's value using the exact same algorithm
+// @supabase/ssr uses internally (see combineChunks/decodeChunkedCookieValue
+// in node_modules/@supabase/ssr/src/cookies.ts) so that if getUser() ever
+// reports AuthSessionMissingError again while sb-arabautomators-auth-token*
+// cookies ARE present, this pins down exactly which step fails -- a missing
+// chunk, corrupt base64url, invalid JSON, or a parsed session missing an
+// expected field -- instead of another denial with zero further detail.
+// Never logs the token/session content itself, only shape/length/validity.
+function inspectAuthCookie(allCookies: { name: string; value: string }[]) {
+  const byName = new Map(allCookies.map((c) => [c.name, c.value]));
+  if (!byName.has(SUPABASE_AUTH_COOKIE_NAME) && !byName.has(`${SUPABASE_AUTH_COOKIE_NAME}.0`)) {
+    return;
+  }
+
+  let raw = byName.get(SUPABASE_AUTH_COOKIE_NAME) ?? null;
+  let chunkCount = 0;
+  if (raw === null) {
+    const parts: string[] = [];
+    for (let i = 0; ; i++) {
+      const chunk = byName.get(`${SUPABASE_AUTH_COOKIE_NAME}.${i}`);
+      if (chunk === undefined) break;
+      parts.push(chunk);
+      chunkCount++;
+    }
+    raw = parts.length > 0 ? parts.join("") : null;
+  }
+
+  if (raw === null) {
+    console.warn("[device-session] cookie-inspect: no value found under any chunk name");
+    return;
+  }
+  console.warn(`[device-session] cookie-inspect: chunkCount=${chunkCount || "unchunked"} rawLength=${raw.length}`);
+
+  const BASE64_PREFIX = "base64-";
+  if (!raw.startsWith(BASE64_PREFIX)) {
+    console.warn("[device-session] cookie-inspect: value has no base64- prefix (unexpected for cookieEncoding=base64url)");
+    return;
+  }
+
+  let decoded: string;
+  try {
+    decoded = Buffer.from(raw.slice(BASE64_PREFIX.length), "base64url").toString("utf8");
+  } catch (e) {
+    console.warn(`[device-session] cookie-inspect: base64url decode threw: ${String(e)}`);
+    return;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(decoded);
+  } catch (e) {
+    console.warn(
+      `[device-session] cookie-inspect: JSON.parse failed (decodedLength=${decoded.length}): ${String(e)}`,
+    );
+    return;
+  }
+
+  const session = parsed as {
+    expires_at?: unknown;
+    access_token?: unknown;
+    refresh_token?: unknown;
+    user?: { id?: unknown };
+  };
+  console.warn(
+    `[device-session] cookie-inspect: parsed OK, expires_at=${session.expires_at} hasAccessToken=${typeof session.access_token === "string"} hasRefreshToken=${typeof session.refresh_token === "string"} userId=${session.user?.id ?? "none"}`,
+  );
+}
+
 async function fetchIdentityOnce(attempt: 1 | 2) {
   // Diagnostic only, names not values -- distinguishes "the auth cookie
   // genuinely wasn't sent on this request" (a browser/client-side question)
   // from "it was present but getUser() still reported no session" (a
   // server-side parsing/validation question), for AuthSessionMissingError.
-  const cookieNames = (await cookies()).getAll().map((c) => c.name);
-  console.warn(`[device-session] attempt=${attempt} cookies present: ${cookieNames.join(", ") || "(none)"}`);
+  const allCookies = (await cookies()).getAll();
+  console.warn(
+    `[device-session] attempt=${attempt} cookies present: ${allCookies.map((c) => c.name).join(", ") || "(none)"}`,
+  );
+  inspectAuthCookie(allCookies);
 
   const supabase = await createClient();
 
