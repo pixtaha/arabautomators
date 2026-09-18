@@ -36,6 +36,8 @@ interface TaskListRow {
   end_at: string | null;
   is_active: boolean;
   pending_count: number;
+  submission_count: number;
+  approved_count: number;
 }
 
 function offeredLevels(task: TaskListRow): { level: Level; points: number }[] {
@@ -79,6 +81,13 @@ export function AdminTaskBoardClient() {
   const [editLoadError, setEditLoadError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskListRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Only the "has approved submissions" case needs a real dialog (two
+  // distinct choices) -- the other two delete cases are a plain
+  // window.confirm(), matching this codebase's existing delete-confirmation
+  // convention (see AdminQuizzesClient.tsx).
+  const [deleteTarget, setDeleteTarget] = useState<TaskListRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadTasks = useCallback(() => {
     fetch("/api/admin/task-board/tasks")
@@ -90,6 +99,47 @@ export function AdminTaskBoardClient() {
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+
+  async function performDelete(taskId: string, removePoints: boolean) {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/task-board/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ removePoints }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setDeleteError(data?.error ?? "Could not delete task.");
+        return;
+      }
+      setDeleteTarget(null);
+      loadTasks();
+    } catch {
+      setDeleteError("Could not delete task. Check your connection and try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  // No submissions: plain confirm. Submissions but nothing approved yet (no
+  // points at stake): plain confirm too, just naming the count. Approved
+  // submissions with live points: opens the two-choice dialog instead --
+  // see DeleteTaskDialog below.
+  function handleDeleteClick(task: TaskListRow) {
+    setDeleteError(null);
+    if (task.approved_count > 0) {
+      setDeleteTarget(task);
+      return;
+    }
+    const message =
+      task.submission_count > 0
+        ? `This task has ${task.submission_count} student submission${task.submission_count === 1 ? "" : "s"} that will be permanently deleted. Are you sure?`
+        : "Delete this task? This can't be undone.";
+    if (!window.confirm(message)) return;
+    void performDelete(task.id, false);
+  }
 
   async function openEditForm(taskId: string) {
     setEditLoadError(null);
@@ -127,6 +177,7 @@ export function AdminTaskBoardClient() {
 
           {error && <p className="text-xs font-medium text-aa-red-700">{error}</p>}
           {editLoadError && <p className="text-xs font-medium text-aa-red-700">{editLoadError}</p>}
+          {deleteError && !deleteTarget && <p className="text-xs font-medium text-aa-red-700">{deleteError}</p>}
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -168,7 +219,7 @@ export function AdminTaskBoardClient() {
             ) : (
               <div className="flex flex-col gap-3">
                 {tasks.map((task) => (
-                  <TaskListCard key={task.id} task={task} onEdit={openEditForm} />
+                  <TaskListCard key={task.id} task={task} onEdit={openEditForm} onDelete={handleDeleteClick} />
                 ))}
               </div>
             )}
@@ -176,12 +227,95 @@ export function AdminTaskBoardClient() {
         </div>
       </main>
 
+      {deleteTarget && (
+        <DeleteTaskDialog
+          task={deleteTarget}
+          deleting={deleting}
+          error={deleteError}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }}
+          onConfirm={(removePoints) => void performDelete(deleteTarget.id, removePoints)}
+        />
+      )}
+
       <Footer />
     </div>
   );
 }
 
-function TaskListCard({ task, onEdit }: { task: TaskListRow; onEdit: (taskId: string) => void }) {
+function DeleteTaskDialog({
+  task,
+  deleting,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  task: TaskListRow;
+  deleting: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: (removePoints: boolean) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-ink/[0.34] p-4 backdrop-blur-[3px]"
+      onClick={onCancel}
+    >
+      <div
+        className="flex w-full max-w-md flex-col gap-4 rounded-[20px] border border-border-hairline bg-surface-card p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col gap-1.5">
+          <span className="font-mono text-[11px] font-bold tracking-widest text-aa-red-700 uppercase">Delete task</span>
+          <p className="text-sm text-text-body text-pretty">
+            This task has {task.approved_count} student submission{task.approved_count === 1 ? "" : "s"} with points
+            awarded. Do you also want to remove those points from students&apos; totals, or keep their earned points
+            and just delete the task?
+          </p>
+        </div>
+        {error && <p className="text-xs font-medium text-aa-red-700">{error}</p>}
+        <div className="flex flex-col gap-2 pt-1">
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={() => onConfirm(true)}
+            className="inline-flex h-10 cursor-pointer items-center justify-center rounded-control bg-aa-red-500 px-4 text-sm font-semibold text-white disabled:cursor-default disabled:opacity-50"
+          >
+            Remove points and delete task
+          </button>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={() => onConfirm(false)}
+            className="inline-flex h-10 cursor-pointer items-center justify-center rounded-control border border-border-hairline-strong bg-surface-card px-4 text-sm font-semibold text-text-strong disabled:cursor-default disabled:opacity-50"
+          >
+            Keep points, delete task
+          </button>
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={onCancel}
+            className="inline-flex h-10 cursor-pointer items-center justify-center rounded-control px-4 text-sm font-semibold text-text-muted hover:bg-surface-hover disabled:cursor-default disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskListCard({
+  task,
+  onEdit,
+  onDelete,
+}: {
+  task: TaskListRow;
+  onEdit: (taskId: string) => void;
+  onDelete: (task: TaskListRow) => void;
+}) {
   const levels = offeredLevels(task);
   const requirements = REQUIREMENT_FLAGS.filter((f) => task[f.key]);
   const start = formatTaskDate(task.start_at);
@@ -198,6 +332,13 @@ function TaskListCard({ task, onEdit }: { task: TaskListRow; onEdit: (taskId: st
             className="cursor-pointer text-xs font-semibold text-text-accent underline"
           >
             Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(task)}
+            className="cursor-pointer text-xs font-semibold text-aa-red-700 underline"
+          >
+            Delete
           </button>
           <span
             className={`rounded-full px-2.5 py-1 font-mono text-[11px] font-bold ${

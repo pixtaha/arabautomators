@@ -17,6 +17,7 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RESOURCE_BUCKET = "task-board-resources";
 const RESOURCE_PUBLIC_PREFIX = `/storage/v1/object/public/${RESOURCE_BUCKET}/`;
+const SUBMISSION_BUCKET = "task-board-submissions";
 
 // Powers the Manage Tasks edit form: full task detail (every column the
 // create/edit form can seed from) plus its resources, fetched on demand
@@ -262,4 +263,139 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
   }
 
   return Response.json(resourcesError ? { task: updated, resourcesError } : { task: updated });
+}
+
+// Deletes a task entirely. task_board_submissions/task_board_task_resources
+// both cascade off task_board_tasks (20260911_create_task_board.sql,
+// 20260914_task_board_task_resources.sql), so those DB rows clean
+// themselves up. What doesn't clean itself up: Storage (cascading a DB row
+// never touches Storage -- both this task's resource files and every
+// student's submission files/screenshots would otherwise be orphaned
+// forever) and points_ledger (source_id is a bare uuid with no FK at all,
+// by design -- see 20260905_points_ledger.sql -- so a submission's awarded
+// points survive its own deletion unless explicitly removed below). Both
+// are gathered *before* the task delete, since the cascade removes the
+// rows that name them.
+export async function DELETE(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const { taskId } = await params;
+  if (!UUID_RE.test(taskId)) return Response.json({ error: "Invalid task id." }, { status: 400 });
+
+  const existingTask = await getTaskBoardTaskById(taskId);
+  if (!existingTask) return Response.json({ error: "Task not found." }, { status: 404 });
+
+  const body = await request.json().catch(() => ({}));
+  const removePoints = Boolean(body && typeof body === "object" && (body as Record<string, unknown>).removePoints === true);
+
+  const supabase = createAdminClient();
+
+  // Every step below is best-effort cleanup, not a precondition for the
+  // task delete at the bottom -- none of it is allowed to block or abort
+  // the actual delete (a transient storage/network hiccup here shouldn't
+  // leave an admin unable to delete a task at all). Each failure is logged
+  // instead, so a partial cleanup is a visible, diagnosable event (check
+  // `docker logs` for "[task-board]") rather than silently-lost state.
+  const { data: submissions, error: submissionsError } = await supabase
+    .from("task_board_submissions")
+    .select("id, status, submission_file_path, submission_pdf_path, submission_image_path, submission_video_path")
+    .eq("task_id", taskId);
+  if (submissionsError) {
+    // The most consequential of these failures -- both the points and
+    // storage cleanup below depend on this list, so a failure here skips
+    // both entirely (they safely no-op on an empty list either way).
+    console.error("[task-board] Could not list submissions before task delete, skipping points/storage cleanup", {
+      taskId,
+      message: submissionsError.message,
+    });
+  }
+
+  const submissionIds = (submissions ?? []).map((s) => s.id);
+
+  // Only status = 'approved' submissions can have a live points_ledger row
+  // right now -- revoke_task_board_points_on_status_change()
+  // (20260913_task_board_revoke_points_on_status_change.sql) deletes it the
+  // instant a submission leaves 'approved' for any reason, and
+  // award_task_board_points() only ever (re-)inserts it on a transition
+  // INTO 'approved'. So this filter is exact, not an approximation.
+  if (removePoints) {
+    const approvedSubmissionIds = (submissions ?? []).filter((s) => s.status === "approved").map((s) => s.id);
+    if (approvedSubmissionIds.length > 0) {
+      const { error: pointsError } = await supabase
+        .from("points_ledger")
+        .delete()
+        .eq("source_type", "task_board")
+        .in("source_id", approvedSubmissionIds);
+      if (pointsError) {
+        console.error("[task-board] Could not remove points_ledger rows for deleted task", {
+          taskId,
+          message: pointsError.message,
+        });
+      }
+    }
+  }
+
+  if (submissionIds.length > 0) {
+    const { data: screenshotFiles, error: screenshotFilesError } = await supabase
+      .from("task_board_submission_files")
+      .select("file_path")
+      .in("submission_id", submissionIds);
+    if (screenshotFilesError) {
+      console.error("[task-board] Could not list screenshot files for deleted task, some may be orphaned in storage", {
+        taskId,
+        message: screenshotFilesError.message,
+      });
+    }
+
+    const primaryPaths = (submissions ?? [])
+      .flatMap((s) => [s.submission_file_path, s.submission_pdf_path, s.submission_image_path, s.submission_video_path])
+      .filter((p): p is string => Boolean(p));
+    const screenshotPaths = (screenshotFiles ?? []).map((f) => f.file_path).filter((p): p is string => Boolean(p));
+
+    const submissionPaths = [...primaryPaths, ...screenshotPaths];
+    if (submissionPaths.length > 0) {
+      const { error: submissionStorageError } = await supabase.storage.from(SUBMISSION_BUCKET).remove(submissionPaths);
+      if (submissionStorageError) {
+        console.error("[task-board] Could not remove submission files from storage for deleted task", {
+          taskId,
+          message: submissionStorageError.message,
+        });
+      }
+    }
+  }
+
+  const { data: resources, error: resourcesError } = await supabase
+    .from("task_board_task_resources")
+    .select("url, type")
+    .eq("task_id", taskId);
+  if (resourcesError) {
+    console.error("[task-board] Could not list resources for deleted task, some may be orphaned in storage", {
+      taskId,
+      message: resourcesError.message,
+    });
+  }
+  const resourcePaths = (resources ?? [])
+    .filter((r) => (r.type === "image" || r.type === "pdf") && r.url)
+    .map((r) => {
+      const idx = r.url!.indexOf(RESOURCE_PUBLIC_PREFIX);
+      return idx === -1 ? null : decodeURIComponent(r.url!.slice(idx + RESOURCE_PUBLIC_PREFIX.length));
+    })
+    .filter((path): path is string => path !== null);
+  if (resourcePaths.length > 0) {
+    const { error: resourceStorageError } = await supabase.storage.from(RESOURCE_BUCKET).remove(resourcePaths);
+    if (resourceStorageError) {
+      console.error("[task-board] Could not remove resource files from storage for deleted task", {
+        taskId,
+        message: resourceStorageError.message,
+      });
+    }
+  }
+
+  // The one step that's actually load-bearing: if this fails, nothing was
+  // deleted, and the route reports it rather than claiming success.
+  const { error } = await supabase.from("task_board_tasks").delete().eq("id", taskId);
+  if (error) return Response.json({ error: "Could not delete task." }, { status: 500 });
+
+  return Response.json({ ok: true });
 }

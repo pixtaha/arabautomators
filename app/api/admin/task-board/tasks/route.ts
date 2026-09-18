@@ -34,18 +34,37 @@ export async function GET() {
 
   const taskIds = tasks.map((t) => t.id);
   const pendingCountByTaskId = new Map<string, number>();
+  // submission_count/approved_count power the Delete button's confirmation
+  // (see the DELETE handler in [taskId]/route.ts): no submissions, has
+  // submissions but nothing approved, or has submissions with live points.
+  // approved_count doubles as "how many currently have a live points_ledger
+  // row" -- revoke_task_board_points_on_status_change()
+  // (20260913_task_board_revoke_points_on_status_change.sql) guarantees a
+  // submission has one iff its status is currently 'approved'.
+  const submissionCountByTaskId = new Map<string, number>();
+  const approvedCountByTaskId = new Map<string, number>();
   if (taskIds.length > 0) {
-    const { data: pendingRows } = await supabase
+    const { data: submissionRows } = await supabase
       .from("task_board_submissions")
-      .select("task_id")
-      .in("task_id", taskIds)
-      .in("status", ["submitted", "reviewing"]);
-    for (const row of pendingRows ?? []) {
-      pendingCountByTaskId.set(row.task_id, (pendingCountByTaskId.get(row.task_id) ?? 0) + 1);
+      .select("task_id, status")
+      .in("task_id", taskIds);
+    for (const row of submissionRows ?? []) {
+      submissionCountByTaskId.set(row.task_id, (submissionCountByTaskId.get(row.task_id) ?? 0) + 1);
+      if (row.status === "submitted" || row.status === "reviewing") {
+        pendingCountByTaskId.set(row.task_id, (pendingCountByTaskId.get(row.task_id) ?? 0) + 1);
+      }
+      if (row.status === "approved") {
+        approvedCountByTaskId.set(row.task_id, (approvedCountByTaskId.get(row.task_id) ?? 0) + 1);
+      }
     }
   }
 
-  const result = tasks.map((t) => ({ ...t, pending_count: pendingCountByTaskId.get(t.id) ?? 0 }));
+  const result = tasks.map((t) => ({
+    ...t,
+    pending_count: pendingCountByTaskId.get(t.id) ?? 0,
+    submission_count: submissionCountByTaskId.get(t.id) ?? 0,
+    approved_count: approvedCountByTaskId.get(t.id) ?? 0,
+  }));
   return Response.json({ tasks: result });
 }
 
