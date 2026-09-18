@@ -8,7 +8,6 @@ import {
   type ParsedLevel,
   type ParsedResource,
   parseDate,
-  parseHexColor,
   parseLevel,
   parseResource,
 } from "@/lib/taskBoardValidation";
@@ -111,11 +110,6 @@ export async function POST(request: Request) {
       ? body.submissionCodePlaceholder.trim()
       : null;
 
-  const completedColorBaseResult = parseHexColor(body.completedColorBase, "Base completed color");
-  if ("error" in completedColorBaseResult) return Response.json({ error: completedColorBaseResult.error }, { status: 400 });
-  const completedColorMediumResult = parseHexColor(body.completedColorMedium, "Medium completed color");
-  if ("error" in completedColorMediumResult) return Response.json({ error: completedColorMediumResult.error }, { status: 400 });
-
   const startAtResult = parseDate(body.startAt, "start date");
   if ("error" in startAtResult) return Response.json({ error: startAtResult.error }, { status: 400 });
   const endAtResult = parseDate(body.endAt, "end date");
@@ -192,10 +186,8 @@ export async function POST(request: Request) {
       checklist_base: parsedLevels.base.checklist,
       checklist_medium: parsedLevels.medium.checklist,
       checklist_hard: parsedLevels.hard.checklist,
-      completed_color_base: parsedLevels.base.enabled ? (completedColorBaseResult.value ?? DEFAULT_COMPLETED_COLOR_BASE) : null,
-      completed_color_medium: parsedLevels.medium.enabled
-        ? (completedColorMediumResult.value ?? DEFAULT_COMPLETED_COLOR_MEDIUM)
-        : null,
+      completed_color_base: parsedLevels.base.enabled ? DEFAULT_COMPLETED_COLOR_BASE : null,
+      completed_color_medium: parsedLevels.medium.enabled ? DEFAULT_COMPLETED_COLOR_MEDIUM : null,
     })
     .select()
     .single();

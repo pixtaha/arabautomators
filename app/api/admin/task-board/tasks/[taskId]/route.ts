@@ -2,14 +2,11 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResourcesByTaskIds, getTaskBoardTaskById } from "@/lib/data/taskBoard";
 import {
-  DEFAULT_COMPLETED_COLOR_BASE,
-  DEFAULT_COMPLETED_COLOR_MEDIUM,
   LEVEL_KEYS,
   type LevelKey,
   type ParsedLevel,
   type ParsedResource,
   parseDate,
-  parseHexColor,
   parseLevel,
   parseResource,
 } from "@/lib/taskBoardValidation";
@@ -86,11 +83,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
     typeof body.submissionCodePlaceholder === "string" && body.submissionCodePlaceholder.trim()
       ? body.submissionCodePlaceholder.trim()
       : null;
-
-  const completedColorBaseResult = parseHexColor(body.completedColorBase, "Base completed color");
-  if ("error" in completedColorBaseResult) return Response.json({ error: completedColorBaseResult.error }, { status: 400 });
-  const completedColorMediumResult = parseHexColor(body.completedColorMedium, "Medium completed color");
-  if ("error" in completedColorMediumResult) return Response.json({ error: completedColorMediumResult.error }, { status: 400 });
 
   const startAtResult = parseDate(body.startAt, "start date");
   if ("error" in startAtResult) return Response.json({ error: startAtResult.error }, { status: 400 });
@@ -198,10 +190,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
       checklist_base: parsedLevels.base.checklist,
       checklist_medium: parsedLevels.medium.checklist,
       checklist_hard: parsedLevels.hard.checklist,
-      completed_color_base: parsedLevels.base.enabled ? (completedColorBaseResult.value ?? DEFAULT_COMPLETED_COLOR_BASE) : null,
-      completed_color_medium: parsedLevels.medium.enabled
-        ? (completedColorMediumResult.value ?? DEFAULT_COMPLETED_COLOR_MEDIUM)
-        : null,
+      // completed_color_base/medium deliberately excluded -- colors are set
+      // once on create (see POST /tasks) and never editable after that, so
+      // an edit-and-save can never overwrite a task's color (default or a
+      // pre-existing custom one) even if the admin touches nothing
+      // color-related. See lib/taskBoardValidation.ts's DEFAULT_* comment.
     })
     .eq("id", taskId)
     .select()

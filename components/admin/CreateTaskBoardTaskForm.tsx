@@ -169,8 +169,6 @@ export function CreateTaskBoardTaskForm({
     () => initialTask?.submission_code_placeholder ?? "",
   );
   const [requiresScreenshots, setRequiresScreenshots] = useState(() => initialTask?.requires_screenshots ?? false);
-  const [completedColorBase, setCompletedColorBase] = useState(() => initialTask?.completed_color_base ?? "");
-  const [completedColorMedium, setCompletedColorMedium] = useState(() => initialTask?.completed_color_medium ?? "");
   const [levels, setLevels] = useState<Record<LevelKey, LevelState>>(() =>
     initialTask ? levelsFromTask(initialTask) : emptyLevels(),
   );
@@ -295,8 +293,6 @@ export function CreateTaskBoardTaskForm({
       requiresCode,
       submissionCodePlaceholder: requiresCode && submissionCodePlaceholder.trim() ? submissionCodePlaceholder.trim() : null,
       requiresScreenshots,
-      completedColorBase: levels.base.enabled && completedColorBase ? completedColorBase : null,
-      completedColorMedium: levels.medium.enabled && completedColorMedium ? completedColorMedium : null,
       levels: Object.fromEntries(
         LEVEL_KEYS.map((key) => {
           const lv = levels[key];
@@ -373,8 +369,6 @@ export function CreateTaskBoardTaskForm({
         setRequiresCode(false);
         setSubmissionCodePlaceholder("");
         setRequiresScreenshots(false);
-        setCompletedColorBase("");
-        setCompletedColorMedium("");
         setLevels(emptyLevels());
         setResources([]);
       }
@@ -646,38 +640,6 @@ export function CreateTaskBoardTaskForm({
                       className="w-full resize-y rounded-control border border-border-hairline-strong bg-surface-card p-3 text-sm text-text-body outline-none focus:border-surface-brand focus:ring-2 focus:ring-surface-brand/25"
                     />
                   </div>
-                  {key !== "hard" && (
-                    <div className="flex flex-col gap-1.5">
-                      <label className="font-mono text-[11px] tracking-widest text-text-muted uppercase">
-                        Completed card color (optional)
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={(key === "base" ? completedColorBase : completedColorMedium) || "#ffffff"}
-                          onChange={(e) =>
-                            key === "base" ? setCompletedColorBase(e.target.value) : setCompletedColorMedium(e.target.value)
-                          }
-                          disabled={submitting}
-                          className="h-9 w-14 cursor-pointer rounded-control border border-border-hairline-strong bg-surface-card p-1"
-                        />
-                        {(key === "base" ? completedColorBase : completedColorMedium) && (
-                          <button
-                            type="button"
-                            onClick={() => (key === "base" ? setCompletedColorBase("") : setCompletedColorMedium(""))}
-                            disabled={submitting}
-                            className="cursor-pointer text-xs font-semibold text-text-accent underline"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-xs text-text-faint">
-                        Background color for this task&apos;s card on a student&apos;s board once their submission is
-                        approved at {LEVEL_LABELS[key]} level. Hard&apos;s color is fixed (solid green, white text).
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
