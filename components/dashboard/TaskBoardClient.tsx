@@ -148,6 +148,12 @@ function columnKeyForTask(status: TaskBoardStatus, sentBack: boolean): ColumnKey
   return "reviewed"; // approved
 }
 
+// Long titles at the card's ~16px display font wrap to 3 lines in the
+// grid's ~260px title column at text-base -- past this length, dropping to
+// text-sm buys back enough characters-per-line to usually save a line,
+// without touching the vast majority of titles that already fit fine.
+const LONG_TITLE_CHAR_THRESHOLD = 40;
+
 function levelPoints(task: TaskBoardTaskRow, level: TaskBoardLevel) {
   if (level === "base") return task.points_base ?? 0;
   if (level === "medium") return task.points_medium ?? 0;
@@ -640,7 +646,9 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                       <div
                         dir={isArabicText(task.title) ? "rtl" : "ltr"}
                         style={completedTextStyle}
-                        className="font-display text-base font-bold tracking-tight text-text-strong text-pretty"
+                        className={`font-display font-bold tracking-tight text-text-strong text-pretty ${
+                          task.title.length > LONG_TITLE_CHAR_THRESHOLD ? "text-sm" : "text-base"
+                        }`}
                       >
                         {task.title}
                       </div>
