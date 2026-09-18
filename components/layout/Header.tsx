@@ -124,7 +124,7 @@ export function Header() {
           )}
           <AuthStatus />
         </nav>
-        <nav aria-label="Mobile navigation" className="flex items-center gap-1.5 sm:hidden">
+        <nav aria-label="Mobile navigation" className="flex flex-wrap items-center gap-1.5 sm:hidden">
           <Link href="/dashboard/tasks-leaderboard" className="rounded-full px-3 py-2 text-xs font-semibold text-text-strong transition-colors hover:bg-surface-sunken">
             Leaderboard
           </Link>
