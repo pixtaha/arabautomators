@@ -6,7 +6,7 @@ import { TextNoteModal } from "@/components/course/TextNoteModal";
 import { VoiceNoteCard } from "@/components/course/VoiceNoteCard";
 import { WorkflowResourceCard } from "@/components/course/WorkflowResourceCard";
 import type { SessionResourceRow } from "@/lib/data/courseSessions";
-import { formatFileSize, isVideoResource } from "@/lib/sessionResources";
+import { formatFileSize, isVideoResource, sessionResourceDownloadUrl } from "@/lib/sessionResources";
 
 function DownloadIcon() {
   return (
@@ -138,6 +138,35 @@ function LinkItem({ resource }: { resource: SessionResourceRow }) {
   );
 }
 
+// Unlike DocumentItem/LinkItem (which open in a new tab), this forces a real
+// download -- see sessionResourceDownloadUrl. No target="_blank": an
+// attachment response doesn't navigate away, so a new tab would just flash.
+function CsvItem({ resource }: { resource: SessionResourceRow }) {
+  if (!resource.file_url) return null;
+  const meta = ["CSV", resource.file_size_bytes ? formatFileSize(resource.file_size_bytes) : null]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <a
+      href={sessionResourceDownloadUrl(resource.file_url)}
+      aria-label={`Download ${resource.title}`}
+      className="flex items-center gap-3 rounded-card-inner bg-surface-sunken p-3 text-sm text-text-body transition-colors hover:bg-surface-hover"
+    >
+      <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-strong">
+        <FileIcon />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-text-strong">{resource.title}</span>
+        <span className="mt-0.5 block font-mono text-[11px] text-text-muted">{meta}</span>
+      </span>
+      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border-hairline bg-white text-text-body">
+        <DownloadIcon />
+      </span>
+    </a>
+  );
+}
+
 function VideoItem({ resource }: { resource: SessionResourceRow }) {
   const { selectedPart, selectPart } = useSessionVideo();
   const isPlaying = selectedPart?.id === resource.id;
@@ -199,6 +228,7 @@ export function SessionResourcesPanel({ resources }: { resources: SessionResourc
             return <WorkflowResourceCard key={resource.id} title={resource.title} fileUrl={resource.file_url} />;
           }
           if (resource.type === "link") return <LinkItem key={resource.id} resource={resource} />;
+          if (resource.type === "csv") return <CsvItem key={resource.id} resource={resource} />;
           if (isVideoResource(resource.type)) return <VideoItem key={resource.id} resource={resource} />;
           return null;
         })}

@@ -16,6 +16,26 @@ export function isVideoFile(file: { type: string; name: string }): boolean {
     (/\.mp4$/i.test(file.name) && file.type.toLowerCase() !== "audio/mp4");
 }
 
+/**
+ * Public-object URL that forces a browser download instead of opening
+ * inline. The HTML `download` attribute is ignored on cross-origin URLs
+ * (these files live on the Supabase origin, not the app's), so this uses
+ * Supabase Storage's own `?download=<name>` param, which makes it respond
+ * with `Content-Disposition: attachment; filename=<name>`. Uploads are
+ * stored as `<moduleId>/<Date.now()>-<sanitized name>`; the timestamp prefix
+ * is stripped so students get the original filename.
+ */
+export function sessionResourceDownloadUrl(fileUrl: string): string {
+  try {
+    const url = new URL(fileUrl);
+    const lastSegment = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    url.searchParams.set("download", lastSegment.replace(/^\d+-/, "") || "download");
+    return url.toString();
+  } catch {
+    return fileUrl;
+  }
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];

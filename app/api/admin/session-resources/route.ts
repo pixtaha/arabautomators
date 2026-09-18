@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { publicStorageUrl } from "@/lib/supabase/publicStorageUrl";
 
 const BUCKET = "session-resources";
-const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video", "link"] as const;
+const RESOURCE_TYPES = ["pdf", "voice_note", "workflow_file", "text", "video", "credential_video", "link", "csv"] as const;
 type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -23,6 +23,7 @@ const RESOURCE_TYPES = [
   { value: "video", label: "General session video" },
   { value: "credential_video", label: "Credential setup video" },
   { value: "link", label: "Link" },
+  { value: "csv", label: "CSV" },
 ] as const;
 
 type ResourceType = (typeof RESOURCE_TYPES)[number]["value"];
@@ -557,6 +558,7 @@ export function SessionResourcesAdminClient() {
                         id="resource-file"
                         ref={fileInputRef}
                         type="file"
+                        accept={type === "csv" ? ".csv,text/csv" : undefined}
                         onChange={(e) => {
                           const selectedFile = e.target.files?.[0] ?? null;
                           setFormError(null);
