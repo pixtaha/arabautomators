@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  DEFAULT_COMPLETED_COLOR_BASE,
+  DEFAULT_COMPLETED_COLOR_MEDIUM,
   LEVEL_KEYS,
   type LevelKey,
   type ParsedLevel,
@@ -171,8 +173,10 @@ export async function POST(request: Request) {
       checklist_base: parsedLevels.base.checklist,
       checklist_medium: parsedLevels.medium.checklist,
       checklist_hard: parsedLevels.hard.checklist,
-      completed_color_base: parsedLevels.base.enabled ? completedColorBaseResult.value : null,
-      completed_color_medium: parsedLevels.medium.enabled ? completedColorMediumResult.value : null,
+      completed_color_base: parsedLevels.base.enabled ? (completedColorBaseResult.value ?? DEFAULT_COMPLETED_COLOR_BASE) : null,
+      completed_color_medium: parsedLevels.medium.enabled
+        ? (completedColorMediumResult.value ?? DEFAULT_COMPLETED_COLOR_MEDIUM)
+        : null,
     })
     .select()
     .single();

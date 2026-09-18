@@ -111,6 +111,15 @@ export function parseDate(input: unknown, label: string): { value: string | null
   return { value: parsed.toISOString() };
 }
 
+// Applied whenever an admin leaves a level's "Completed card color" blank --
+// see the two task-board tasks API routes, and the backfill migration
+// (20260918_task_board_default_completion_colors.sql) that applied these
+// retroactively to tasks that predate this default. Hard has no default
+// here: its color is a fixed constant in TaskBoardClient.tsx, not
+// admin-configurable.
+export const DEFAULT_COMPLETED_COLOR_BASE = "#eff6ff";
+export const DEFAULT_COMPLETED_COLOR_MEDIUM = "#fef3c7";
+
 // completedColorBase/completedColorMedium come from an <input type="color">,
 // which only ever emits "#rrggbb", but this still validates server-side
 // since the request body isn't trustworthy just because the browser widget
