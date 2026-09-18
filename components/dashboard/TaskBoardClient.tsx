@@ -667,7 +667,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                         <span style={completedTextStyle} className="font-mono text-xs text-text-muted">{due ?? ""}</span>
                         <span className="flex items-center gap-1.5">
                           {locked && Boolean(submission?.bonus_points) && (
-                            <span className="inline-flex items-center rounded-full bg-surface-accent-soft px-2 py-0.5 font-mono text-[10px] font-bold text-aa-amber-700">
+                            <span className="inline-flex items-center whitespace-nowrap rounded-full bg-surface-accent-soft px-2 py-0.5 font-mono text-[10px] font-bold text-aa-amber-700">
                               +{submission?.bonus_points} bonus
                             </span>
                           )}
