@@ -269,7 +269,7 @@ function SubmissionReviewCard({
   }
 
   async function approve() {
-    const body: Record<string, unknown> = { action: "approve", level, bonusPoints: bonus };
+    const body: Record<string, unknown> = { action: "approve", level, bonusPoints: bonus, note: note.trim() };
     if (override.trim()) {
       const parsed = Number(override.trim());
       if (!Number.isInteger(parsed) || parsed < 0) {
@@ -480,16 +480,23 @@ function SubmissionReviewCard({
         <span className="font-mono text-sm font-bold text-text-strong">{total} pts total</span>
       </div>
 
-      {sendingBack && (
-        <div className="flex flex-col gap-2 rounded-card-inner border border-aa-red-500/30 bg-surface-danger-soft p-3">
-          <textarea
-            dir={isArabicText(note) ? "rtl" : "ltr"}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What does the student need to fix?"
-            rows={2}
-            className="rounded-control border border-border-hairline bg-surface-card p-2 text-sm text-text-body"
-          />
+      <div
+        className={`flex flex-col gap-2 rounded-card-inner border p-3 ${
+          sendingBack ? "border-aa-red-500/30 bg-surface-danger-soft" : "border-border-hairline bg-surface-sunken"
+        }`}
+      >
+        <span className="font-mono text-[10px] font-bold tracking-widest text-text-muted uppercase">
+          Note {sendingBack ? "(required)" : "(optional)"}
+        </span>
+        <textarea
+          dir={isArabicText(note) ? "rtl" : "ltr"}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={sendingBack ? "What does the student need to fix?" : "Feedback for the student, e.g. why you gave a bonus"}
+          rows={2}
+          className="rounded-control border border-border-hairline-strong bg-surface-card p-2 text-sm text-text-body"
+        />
+        {sendingBack && (
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -507,8 +514,8 @@ function SubmissionReviewCard({
               {busy ? "Sending…" : "Confirm send back"}
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex flex-wrap justify-end gap-2 border-t border-border-hairline pt-3">
         {!sendingBack && (
@@ -544,6 +551,8 @@ function ApprovedRow({
   onError: (msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(row.admin_note ?? "");
 
   async function reopen() {
     setBusy(true);
@@ -561,22 +570,91 @@ function ApprovedRow({
     onResolved(data.submission);
   }
 
+  async function saveNote() {
+    setBusy(true);
+    onError("");
+    const res = await fetch(`/api/admin/task-board/submissions/${row.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_note", note: noteDraft.trim() }),
+    });
+    const data = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) {
+      onError(data?.error ?? "Could not save note.");
+      return;
+    }
+    setEditingNote(false);
+    onResolved(data.submission);
+  }
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-card-inner border border-border-hairline bg-surface-card px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <span className="font-mono text-[10px] tracking-widest text-text-faint uppercase">
-          @{row.student_username ?? "student"} · {row.points_awarded ?? 0} pts · {formatDate(row.reviewed_at)}
-        </span>
-        <div className="truncate text-sm font-semibold text-text-strong">{row.task_title}</div>
+    <div className="flex flex-col gap-2 rounded-card-inner border border-border-hairline bg-surface-card px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <span className="font-mono text-[10px] tracking-widest text-text-faint uppercase">
+            @{row.student_username ?? "student"} · {row.points_awarded ?? 0} pts
+            {row.bonus_points > 0 ? ` (+${row.bonus_points} bonus)` : ""} · {formatDate(row.reviewed_at)}
+          </span>
+          <div className="truncate text-sm font-semibold text-text-strong">{row.task_title}</div>
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditingNote((v) => !v)}
+            className="rounded-control border border-border-hairline-strong px-3 py-1.5 text-xs font-semibold text-text-strong hover:bg-surface-hover"
+          >
+            {row.admin_note ? "Note ✓" : "Add note"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={reopen}
+            className="rounded-control border border-border-hairline-strong px-3 py-1.5 text-xs font-semibold text-text-strong hover:bg-surface-hover disabled:opacity-40"
+          >
+            {busy ? "Working…" : "Reopen"}
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={reopen}
-        className="flex-none rounded-control border border-border-hairline-strong px-3 py-1.5 text-xs font-semibold text-text-strong hover:bg-surface-hover disabled:opacity-40"
-      >
-        {busy ? "Working…" : "Reopen"}
-      </button>
+
+      {editingNote ? (
+        <div className="flex flex-col gap-2">
+          <textarea
+            dir={isArabicText(noteDraft) ? "rtl" : "ltr"}
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            placeholder="Feedback for the student"
+            rows={2}
+            className="rounded-control border border-border-hairline-strong bg-surface-card p-2 text-sm text-text-body"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setNoteDraft(row.admin_note ?? "");
+                setEditingNote(false);
+              }}
+              className="rounded-control px-3 py-1.5 text-xs font-semibold text-text-body hover:bg-surface-hover"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={saveNote}
+              className="rounded-control bg-surface-brand px-3 py-1.5 text-xs font-semibold text-text-inverse disabled:opacity-40"
+            >
+              {busy ? "Saving…" : "Save note"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        row.admin_note && (
+          <p dir={isArabicText(row.admin_note) ? "rtl" : "ltr"} className="text-xs text-text-muted text-pretty">
+            {row.admin_note}
+          </p>
+        )
+      )}
     </div>
   );
 }

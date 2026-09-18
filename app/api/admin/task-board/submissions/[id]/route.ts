@@ -6,13 +6,17 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const LEVELS = ["base", "medium", "hard"] as const;
 const BONUS_VALUES = [0, 5, 10, 20];
 
-// The one admin write path for a submission. Three actions:
+// The one admin write path for a submission. Four actions:
 //
 // - approve: computes points_awarded here (level preset + bonus, or a
 //   pointsOverride) and writes it directly -- award_task_board_points()
 //   (the DB trigger) no longer recomputes this itself, it just pushes
 //   whatever points_awarded already says into points_ledger. See the
-//   20260911_task_board_admin_review.sql migration comment for why.
+//   20260911_task_board_admin_review.sql migration comment for why. Takes
+//   an OPTIONAL note (unlike send_back's required one) -- same admin_note
+//   column, just an approval comment instead of a rejection reason; safe to
+//   share because the student board's "sent back" detection also requires
+//   status = 'progress', so a note sitting here can't be misread as one.
 // - send_back: status -> 'progress' (not 'todo' -- the student was
 //   actively working on it) with a REQUIRED admin_note the student board
 //   surfaces. Guarded to only fire from 'submitted'/'reviewing' so a
@@ -21,6 +25,11 @@ const BONUS_VALUES = [0, 5, 10, 20];
 //   way. Never touches points_awarded/points_ledger -- matches the
 //   established "never claw back" philosophy; only a subsequent
 //   re-approval changes the payout.
+// - update_note: edits admin_note on an already-approved submission without
+//   re-grading -- no points/level/status change, so it doesn't touch
+//   points_ledger or reviewed_at/reviewed_by (those mark the grading
+//   decision, not a later comment edit). Guarded to status = 'approved',
+//   matching where the admin UI surfaces this action.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();
   if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -64,6 +73,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return Response.json({ error: "This task does not offer that level." }, { status: 400 });
     }
 
+    if (body.note !== undefined && typeof body.note !== "string") {
+      return Response.json({ error: "Invalid note." }, { status: 400 });
+    }
+    const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) || null : null;
+
     let pointsAwarded: number;
     if (body.pointsOverride !== undefined && body.pointsOverride !== null) {
       if (!Number.isInteger(body.pointsOverride) || body.pointsOverride < 0) {
@@ -83,7 +97,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         level: body.level,
         bonus_points: body.bonusPoints,
         points_awarded: pointsAwarded,
-        admin_note: null,
+        admin_note: note,
         reviewed_at: new Date().toISOString(),
         reviewed_by: admin.id,
         updated_at: new Date().toISOString(),
@@ -117,6 +131,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (updateError) return Response.json({ error: "Could not send back submission." }, { status: 500 });
     if (!updated) return Response.json({ error: "This submission is no longer awaiting review." }, { status: 409 });
+    return Response.json({ submission: updated });
+  }
+
+  if (body.action === "update_note") {
+    if (typeof body.note !== "string") {
+      return Response.json({ error: "Invalid note." }, { status: 400 });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("task_board_submissions")
+      .update({
+        admin_note: body.note.trim().slice(0, 2000) || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("status", "approved")
+      .select()
+      .maybeSingle();
+
+    if (updateError) return Response.json({ error: "Could not update note." }, { status: 500 });
+    if (!updated) return Response.json({ error: "Only an approved submission's note can be edited here." }, { status: 409 });
     return Response.json({ submission: updated });
   }
 

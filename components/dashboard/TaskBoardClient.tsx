@@ -578,7 +578,14 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                         style={completedColor ? { borderColor: `${completedColor.text}33` } : undefined}
                       >
                         <span style={completedTextStyle} className="font-mono text-xs text-text-muted">{due ?? ""}</span>
-                        <span style={completedTextStyle} className="font-mono text-xs font-bold text-text-strong">{points}</span>
+                        <span className="flex items-center gap-1.5">
+                          {locked && Boolean(submission?.bonus_points) && (
+                            <span className="inline-flex items-center rounded-full bg-surface-accent-soft px-2 py-0.5 font-mono text-[10px] font-bold text-aa-amber-700">
+                              +{submission?.bonus_points} bonus
+                            </span>
+                          )}
+                          <span style={completedTextStyle} className="font-mono text-xs font-bold text-text-strong">{points}</span>
+                        </span>
                       </div>
                     </div>
                   );
@@ -638,6 +645,19 @@ function TaskDetailModal({
   const locked = submission?.status === "approved";
   const notYetStarted = isNotYetStarted(task);
   const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
+  // Base + bonus only add up to points_awarded in the common case -- an
+  // admin's manual points override can set points_awarded to anything, so
+  // asserting a breakdown that doesn't actually sum would look like a bug
+  // rather than a deliberate override.
+  const approvedBonus = submission?.bonus_points ?? 0;
+  const approvedTotal = submission?.points_awarded ?? 0;
+  const approvedBase = levelPoints(task, submission?.level ?? level);
+  const approvedPointsSummary =
+    approvedBonus > 0 && approvedBase + approvedBonus === approvedTotal
+      ? `${approvedBase} pts base + ${approvedBonus} pts bonus = ${approvedTotal} pts`
+      : approvedBonus > 0
+        ? `${approvedTotal} pts total (includes a +${approvedBonus} bonus)`
+        : `${approvedTotal} pts total`;
   const linkOk = !task.requires_link || link.trim().length > 0;
   const primaryFilesOk = PRIMARY_FILE_KINDS.every((meta) => !taskRequiresKind(task, meta.kind) || Boolean(primaryFiles[meta.kind]));
   const codeOk = !task.requires_code || code.trim().length > 0;
@@ -780,6 +800,23 @@ function TaskDetailModal({
             >
               {submission?.admin_note}
             </p>
+          </div>
+        )}
+
+        {locked && (
+          <div className="flex flex-col gap-1.5 rounded-card-inner border border-aa-green-500/30 bg-surface-brand-soft p-4">
+            <span className="font-mono text-[11px] font-bold tracking-widest text-aa-green-700 uppercase">
+              Approved
+            </span>
+            <p className="font-mono text-sm font-semibold text-aa-green-800">{approvedPointsSummary}</p>
+            {submission?.admin_note && (
+              <p
+                dir={isArabicText(submission.admin_note) ? "rtl" : "ltr"}
+                className="text-sm text-aa-green-800 text-pretty"
+              >
+                {submission.admin_note}
+              </p>
+            )}
           </div>
         )}
 
