@@ -38,7 +38,7 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
   const data = await getCourseSessionData(sessionId);
   if (!data) notFound();
 
-  const { session, module, moduleSessions, resources, lectureParts } = data;
+  const { session, module, moduleSessions, resources, lectureParts, watchedSessionIds } = data;
   const videoParts = getSessionVideoParts(session.id, lectureParts, resources);
   const lecturePartIds = lectureParts.map((part) => part.id);
   const { prev, next } = getAdjacentSessions(moduleSessions, session.id);
@@ -113,6 +113,7 @@ export default async function CourseSessionPage(props: PageProps<"/course/[sessi
               moduleTitle={module?.title ?? "Module"}
               sessions={moduleSessions}
               currentSessionId={session.id}
+              watchedSessionIds={watchedSessionIds}
             />
           </CourseSessionShell>
         </SessionVideoProvider>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import type { CourseSessionRow } from "@/lib/data/courseSessions";
 
@@ -16,14 +15,16 @@ export function SessionPartsSection({
   moduleTitle,
   sessions,
   currentSessionId,
+  watchedSessionIds,
 }: {
   moduleTitle: string;
   sessions: CourseSessionRow[];
   currentSessionId: string;
+  watchedSessionIds: string[];
 }) {
-  const [done, setDone] = useState<Set<string>>(new Set());
+  const watched = new Set(watchedSessionIds);
 
-  const doneCount = done.size;
+  const doneCount = watched.size;
   const total = sessions.length;
   const progressPct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
@@ -54,7 +55,7 @@ export function SessionPartsSection({
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {sessions.map((s) => {
-          const isDone = done.has(s.id);
+          const isDone = watched.has(s.id);
           const isActive = s.id === currentSessionId;
           const isLive = s.status === "live";
 
@@ -69,18 +70,6 @@ export function SessionPartsSection({
               }`}
             >
               <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setDone((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(s.id)) next.delete(s.id);
-                    else next.add(s.id);
-                    return next;
-                  });
-                }}
                 className={`flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full ${
                   isDone
                     ? "bg-surface-brand text-white"

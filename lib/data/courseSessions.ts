@@ -58,10 +58,16 @@ export interface CourseSessionData {
   moduleSessions: CourseSessionRow[];
   resources: SessionResourceRow[];
   lectureParts: SessionVideoPartRow[];
+  // Sibling sessions (in moduleSessions) whose main video part -- the
+  // session_video_parts row with the lowest order_index, same convention as
+  // app/api/profile/modules-progress/route.ts -- has watched=true in
+  // video_watch_progress for the current student. Drives the watched
+  // indicator in SessionPartsSection.
+  watchedSessionIds: string[];
 }
 
 export async function getCourseSessionData(sessionId: string): Promise<CourseSessionData | null> {
-  await requireDeviceSession();
+  const deviceSession = await requireDeviceSession();
   const supabase = createAdminClient();
 
   const { data: session, error: sessionError } = await supabase
@@ -72,7 +78,7 @@ export async function getCourseSessionData(sessionId: string): Promise<CourseSes
 
   if (sessionError || !session) return null;
 
-  const [{ data: module }, { data: moduleSessions }, { data: resources }, { data: lectureParts }] = await Promise.all([
+  const [{ data: module }, { data: moduleSessions }, { data: resources }] = await Promise.all([
     session.module_id
       ? supabase.from("modules").select("*").eq("id", session.module_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -89,15 +95,50 @@ export async function getCourseSessionData(sessionId: string): Promise<CourseSes
           .order("display_order", { nullsFirst: false })
           .order("order_index")
       : Promise.resolve({ data: [] }),
-    supabase.from("session_video_parts").select("*").eq("session_id", sessionId).order("order_index"),
   ]);
+
+  // Widened to every sibling session in the module (not just sessionId) so a
+  // per-session watched indicator can be computed below. getSessionVideoParts
+  // (called on the returned `lectureParts`, already filtered back down to
+  // sessionId) still only ever sees this session's own parts.
+  const sessionIdsInModule = (moduleSessions ?? []).length > 0 ? (moduleSessions ?? []).map((s) => s.id) : [sessionId];
+  const { data: allLectureParts } = await supabase
+    .from("session_video_parts")
+    .select("*")
+    .in("session_id", sessionIdsInModule)
+    .order("order_index");
+
+  const mainPartBySession = new Map<string, { id: string; orderIndex: number }>();
+  for (const part of allLectureParts ?? []) {
+    const current = mainPartBySession.get(part.session_id);
+    if (!current || part.order_index < current.orderIndex) {
+      mainPartBySession.set(part.session_id, { id: part.id, orderIndex: part.order_index });
+    }
+  }
+
+  const mainPartIds = [...mainPartBySession.values()].map((p) => p.id);
+  const { data: watchedRows } =
+    mainPartIds.length > 0
+      ? await supabase
+          .from("video_watch_progress")
+          .select("session_video_part_id")
+          .eq("student_id", deviceSession.user.id)
+          .eq("watched", true)
+          .in("session_video_part_id", mainPartIds)
+      : { data: [] };
+
+  const watchedPartIds = new Set((watchedRows ?? []).map((r) => r.session_video_part_id as string));
+  const watchedSessionIds = [...mainPartBySession.entries()]
+    .filter(([, part]) => watchedPartIds.has(part.id))
+    .map(([sid]) => sid);
 
   return {
     session,
     module: module ?? null,
     moduleSessions: moduleSessions ?? [],
     resources: (resources ?? []).map(withoutVideoFileUrl),
-    lectureParts: lectureParts ?? [],
+    lectureParts: (allLectureParts ?? []).filter((p) => p.session_id === sessionId),
+    watchedSessionIds,
   };
 }
 
