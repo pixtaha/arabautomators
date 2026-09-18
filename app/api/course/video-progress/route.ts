@@ -3,12 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Single clearly-named place for the "counts as watched" threshold. The
-// video_watch_progress.watched flag is only ever set here, at write time --
-// never recomputed from position on read -- so retuning this later is a
-// one-line change, not a hunt through the app.
-const WATCHED_THRESHOLD_RATIO = 0.9;
-
 function isFiniteNonNegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
@@ -54,14 +48,14 @@ export async function POST(request: Request) {
   const furthestPosition = Math.max(existing?.furthest_position_seconds ?? 0, position);
   // Duration is filled in once and never overwritten -- it shouldn't change
   // for the same video, and a later call with no/different value shouldn't
-  // erase an already-known one.
+  // erase an already-known one. Kept for a future resume-playback feature;
+  // no longer used to gate `watched` (see below).
   const duration = existing?.duration_seconds ?? reportedDuration;
-  // Once watched, stays watched -- this never claws back on a later report
-  // with a lower ratio (there isn't one, since position only grows, but this
-  // also protects against duration being learned late and briefly changing
-  // the ratio's denominator).
-  const watched =
-    existing?.watched === true || (duration != null && duration > 0 && furthestPosition >= WATCHED_THRESHOLD_RATIO * duration);
+  // Reaching this route at all means the student opened and started playing
+  // this video -- that's the whole bar now, no completion percentage
+  // required. Always true rather than conditional: there's no scenario left
+  // where a valid report should NOT mark it watched.
+  const watched = true;
 
   const { error: upsertError } = await supabase.from("video_watch_progress").upsert(
     {

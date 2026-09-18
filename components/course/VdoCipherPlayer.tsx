@@ -114,15 +114,23 @@ export function VdoCipherPlayer({ sessionId, partId, title }: { sessionId: strin
     }
 
     const interval = setInterval(() => void report(), PROGRESS_REPORT_INTERVAL_MS);
-    const onStop = () => void report();
-    player.video.addEventListener("pause", onStop);
-    player.video.addEventListener("ended", onStop);
+    const onReport = () => void report();
+    // "play" is reported too (not just pause/ended) so that opening the
+    // video is enough to mark it watched server-side -- without this, a
+    // student who starts playback and then closes the tab or navigates away
+    // inside the first PROGRESS_REPORT_INTERVAL_MS never sends a report at
+    // all, since the interval hasn't fired yet and neither pause nor ended
+    // ever does either.
+    player.video.addEventListener("play", onReport);
+    player.video.addEventListener("pause", onReport);
+    player.video.addEventListener("ended", onReport);
 
     return () => {
       disposed = true;
       clearInterval(interval);
-      player.video.removeEventListener("pause", onStop);
-      player.video.removeEventListener("ended", onStop);
+      player.video.removeEventListener("play", onReport);
+      player.video.removeEventListener("pause", onReport);
+      player.video.removeEventListener("ended", onReport);
     };
   }, [scriptReady, iframeLoaded, partId]);
 
