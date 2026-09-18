@@ -478,7 +478,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
       <Header />
       <div className="relative min-h-screen overflow-hidden bg-surface-page">
         <div className="bg-dots mask-fade-b absolute inset-0 bg-surface-page" />
-      <div className="relative mx-auto flex max-w-5xl flex-col gap-5 p-4">
+      <div className="relative mx-auto flex max-w-7xl flex-col gap-5 p-4">
       <div className="flex flex-col gap-2 px-1">
         <span className="font-mono text-[11px] tracking-widest text-text-muted uppercase">Round #1 · tasks</span>
         <h1 className="font-display text-3xl font-extrabold tracking-tight text-text-strong">Task board</h1>
