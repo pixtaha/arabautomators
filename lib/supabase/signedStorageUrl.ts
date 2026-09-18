@@ -17,7 +17,14 @@ function toPublicHost(url: string): string {
   const publicBase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
   const rewritten = new URL(url);
   rewritten.protocol = publicBase.protocol;
-  rewritten.host = publicBase.host;
+  // Setting .host alone doesn't clear an existing port: the WHATWG URL
+  // setter only overwrites the port when the assigned string itself
+  // includes one, so `rewritten.host = "supabase.arabautomators.com"` left
+  // the internal client's :8000 (from SUPABASE_INTERNAL_URL) sitting on the
+  // rewritten URL -- confirmed leaking through to the browser. .hostname
+  // never touches port, so port must be set (and cleared) explicitly.
+  rewritten.hostname = publicBase.hostname;
+  rewritten.port = publicBase.port;
   return rewritten.toString();
 }
 
