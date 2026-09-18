@@ -124,21 +124,29 @@ function completedCardColor(task: TaskBoardTaskRow, level: TaskBoardLevel, locke
   return customBg ? { bg: customBg, text: contrastTextColor(customBg) } : null;
 }
 
-const COLUMN_DEFS: {
-  key: "todo" | "progress" | "submitted";
-  label: string;
-  statuses: TaskBoardStatus[];
-  emptyHint: string;
-}[] = [
-  { key: "todo", label: "To do", statuses: ["todo"], emptyHint: "Nothing waiting." },
-  { key: "progress", label: "In progress", statuses: ["progress"], emptyHint: "Drag a task here to start it." },
-  {
-    key: "submitted",
-    label: "Completed",
-    statuses: ["submitted", "reviewing", "approved"],
-    emptyHint: "Drag here when you have submitted.",
-  },
+type ColumnKey = "todo" | "progress" | "submitted" | "reviewed";
+
+const COLUMN_DEFS: { key: ColumnKey; label: string; emptyHint: string }[] = [
+  { key: "todo", label: "To do", emptyHint: "Nothing waiting." },
+  { key: "progress", label: "In progress", emptyHint: "Drag a task here to start it." },
+  { key: "submitted", label: "Completed", emptyHint: "Drag here when you have submitted." },
+  { key: "reviewed", label: "Reviewed", emptyHint: "Nothing reviewed yet." },
 ];
+
+// 'progress' alone just means the student placed it there themselves;
+// admin_note only gets set by an admin's "send back" action, so a
+// submission sitting in 'progress' with a note attached means "sent back
+// for changes" -- the admin has acted on it, so it belongs in Reviewed
+// alongside approved submissions, not In progress. 'reviewing' groups with
+// 'submitted' under Completed: it's only ever reached via the admin
+// "reopen" action on a previously-approved row, i.e. it's back in flux
+// awaiting a fresh decision, same as a first-time submission.
+function columnKeyForTask(status: TaskBoardStatus, sentBack: boolean): ColumnKey {
+  if (status === "todo") return "todo";
+  if (status === "progress") return sentBack ? "reviewed" : "progress";
+  if (status === "submitted" || status === "reviewing") return "submitted";
+  return "reviewed"; // approved
+}
 
 function levelPoints(task: TaskBoardTaskRow, level: TaskBoardLevel) {
   if (level === "base") return task.points_base ?? 0;
@@ -349,6 +357,12 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
   // failure) -- a separate small map rather than synthesizing a fake
   // TaskBoardSubmissionRow, since column placement only ever reads .status.
   const [optimisticStatus, setOptimisticStatus] = useState<Record<string, TaskBoardStatus>>({});
+  // Set when a drag onto "Completed" auto-opens the submission modal
+  // (below) instead of moving the card directly -- distinguishes "closed
+  // without submitting, revert to In progress" from "actually submitted",
+  // since a mid-modal level change also writes a row without really
+  // submitting and must not be mistaken for a real submit.
+  const [pendingSubmitTaskId, setPendingSubmitTaskId] = useState<string | null>(null);
   const movingTaskIds = useRef(new Set<string>());
 
   const submissionByTaskId = useMemo(() => {
@@ -360,6 +374,17 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
   const statusForTask = useCallback(
     (taskId: string): TaskBoardStatus => optimisticStatus[taskId] ?? submissionByTaskId.get(taskId)?.status ?? "todo",
     [optimisticStatus, submissionByTaskId],
+  );
+
+  // Deliberately reads the raw submission, not statusForTask's optimistic
+  // overlay -- a drag move never touches admin_note, so there's nothing to
+  // optimistically predict here, only the real row matters.
+  const sentBackForTask = useCallback(
+    (taskId: string) => {
+      const submission = submissionByTaskId.get(taskId);
+      return submission?.status === "progress" && Boolean(submission?.admin_note);
+    },
+    [submissionByTaskId],
   );
 
   const totalPointsEarned = useMemo(
@@ -418,9 +443,31 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
     [applySubmission],
   );
 
+  // Closes the modal via any of X / backdrop / Escape / the Close button.
+  // If it was auto-opened by a drag onto "Completed" and nothing was
+  // actually submitted, this also reverts the optimistic placement and
+  // moves the real row back to 'progress' -- safe at any time, since a
+  // bare status patch never touches previously-entered submission content
+  // (see the API route's own comment on backward moves).
+  const closeModal = useCallback(() => {
+    if (selectedTaskId && pendingSubmitTaskId === selectedTaskId) {
+      setOptimisticStatus((prev) => withoutKey(prev, selectedTaskId));
+      void moveStatus(selectedTaskId, "progress");
+      setPendingSubmitTaskId(null);
+    }
+    setSelectedTaskId(null);
+  }, [selectedTaskId, pendingSubmitTaskId, moveStatus]);
+
+  // Called only after a real submit succeeds -- clears the pending-revert
+  // tracking without reverting anything, then closes.
+  const handleSubmitted = useCallback(() => {
+    setPendingSubmitTaskId(null);
+    setSelectedTaskId(null);
+  }, []);
+
   const columns = COLUMN_DEFS.map((col) => ({
     ...col,
-    tasks: tasks.filter((task) => col.statuses.includes(statusForTask(task.id))),
+    tasks: tasks.filter((task) => columnKeyForTask(statusForTask(task.id), sentBackForTask(task.id)) === col.key),
   }));
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
@@ -462,9 +509,13 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {columns.map((col) => {
           const isOver = overColumn === col.key && dragTaskId !== null;
+          // "Reviewed" is never a drop target -- both outcomes it holds
+          // (approved, sent-back) are admin-only transitions a plain drag
+          // can't produce.
+          const droppable = col.key !== "reviewed";
           return (
             <div key={col.key} className="flex min-w-0 flex-col gap-2.5">
               <div className="flex items-center justify-between px-1.5">
@@ -472,22 +523,47 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                 <span className="font-mono text-[11px] font-medium text-text-faint">{col.tasks.length}</span>
               </div>
               <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (overColumn !== col.key) setOverColumn(col.key);
-                }}
-                onDragLeave={() => {
-                  if (overColumn === col.key) setOverColumn(null);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setOverColumn(null);
-                  const taskId = dragTaskId;
-                  setDragTaskId(null);
-                  if (!taskId) return;
-                  if (statusForTask(taskId) === "approved") return;
-                  void moveStatus(taskId, col.statuses[0] as "todo" | "progress" | "submitted");
-                }}
+                onDragOver={
+                  droppable
+                    ? (e) => {
+                        e.preventDefault();
+                        if (overColumn !== col.key) setOverColumn(col.key);
+                      }
+                    : undefined
+                }
+                onDragLeave={
+                  droppable
+                    ? () => {
+                        if (overColumn === col.key) setOverColumn(null);
+                      }
+                    : undefined
+                }
+                onDrop={
+                  droppable
+                    ? (e) => {
+                        e.preventDefault();
+                        setOverColumn(null);
+                        const taskId = dragTaskId;
+                        setDragTaskId(null);
+                        if (!taskId) return;
+                        if (statusForTask(taskId) === "approved") return;
+                        // Dropping onto "Completed" no longer moves the
+                        // status directly -- it used to patch a bare
+                        // {status: "submitted"}, which the API accepts with
+                        // zero content attached. Instead this opens the
+                        // real submit flow (with its file/link validation)
+                        // and just previews the move; closeModal reverts it
+                        // if nothing gets submitted.
+                        if (col.key === "submitted") {
+                          setOptimisticStatus((prev) => ({ ...prev, [taskId]: "submitted" }));
+                          setPendingSubmitTaskId(taskId);
+                          setSelectedTaskId(taskId);
+                          return;
+                        }
+                        void moveStatus(taskId, col.key as "todo" | "progress");
+                      }
+                    : undefined
+                }
                 className={`flex min-h-[180px] flex-col gap-3 rounded-card-inner border-2 border-dashed p-2.5 transition-colors ${
                   isOver ? "border-surface-brand bg-surface-brand-soft" : "border-transparent bg-surface-sunken"
                 }`}
@@ -503,11 +579,7 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                     : `${levelPoints(task, level)} pts`;
                   const due = formatDue(task.end_at);
                   const completedBy = completions[task.id] ?? [];
-                  // 'progress' alone just means the student placed it there
-                  // themselves; admin_note only gets set by an admin's
-                  // "send back" action, so together they mean "sent back
-                  // for changes", not "student hasn't touched this yet".
-                  const sentBack = submission?.status === "progress" && Boolean(submission?.admin_note);
+                  const sentBack = sentBackForTask(task.id);
                   const completedColor = completedCardColor(task, level, locked);
                   const completedTextStyle = completedColor ? { color: completedColor.text } : undefined;
 
@@ -548,11 +620,18 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
                               </span>
                             )}
                             {locked && (
-                              <span
-                                style={completedTextStyle}
-                                className="ml-auto font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase"
-                              >
-                                Locked
+                              <span className="ml-auto flex items-center gap-2">
+                                {Boolean(submission?.admin_note) && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-aa-green-500/30 bg-surface-brand-soft px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase">
+                                    Note
+                                  </span>
+                                )}
+                                <span
+                                  style={completedTextStyle}
+                                  className="font-mono text-[11px] font-semibold tracking-wide text-aa-green-700 uppercase"
+                                >
+                                  Locked
+                                </span>
                               </span>
                             )}
                           </>
@@ -603,8 +682,9 @@ export function TaskBoardClient({ initialTasks, initialSubmissions, initialCompl
           submission={selectedSubmission}
           completedBy={completions[selectedTask.id] ?? []}
           resources={resources[selectedTask.id] ?? []}
-          onClose={() => setSelectedTaskId(null)}
+          onClose={closeModal}
           onUpdated={applySubmission}
+          onSubmitted={handleSubmitted}
         />
       )}
       </div>
@@ -620,6 +700,7 @@ function TaskDetailModal({
   resources,
   onClose,
   onUpdated,
+  onSubmitted,
 }: {
   task: TaskBoardTaskRow;
   submission: TaskBoardSubmissionRow | null;
@@ -627,6 +708,7 @@ function TaskDetailModal({
   resources: TaskBoardResourceRow[];
   onClose: () => void;
   onUpdated: (submission: TaskBoardSubmissionRow) => void;
+  onSubmitted: () => void;
 }) {
   const levels = offeredLevels(task);
   const [level, setLevel] = useState<TaskBoardLevel>(submission?.level ?? levels[0]);
@@ -701,6 +783,14 @@ function TaskDetailModal({
     };
   }, [screenshotPreviews]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   function removeStagedScreenshot(index: number) {
     setScreenshotFiles((prev) => prev.filter((_, i) => i !== index));
   }
@@ -741,7 +831,7 @@ function TaskDetailModal({
     onUpdated(result.submission);
     setPrimaryFiles({});
     setScreenshotFiles([]);
-    onClose();
+    onSubmitted();
   }
 
   async function openFile(kind: SubmissionFileKind) {
