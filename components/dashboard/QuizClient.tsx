@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Header } from "@/components/layout/Header";
@@ -60,6 +60,20 @@ function clearDraft(userId: string, quizId: string) {
   }
 }
 
+// The answer already recorded for the question the saved draft resumes on
+// (null if there's none). Drafts only ever hold submitted answers, so a hit
+// here means that question was already submitted before a reload or pause.
+function recordedAnswerAt(userId: string, quiz: LiveQuizRow): string | null {
+  const draft = loadDraft(userId, quiz.id);
+  const question = quiz.quiz_json.questions[draft?.idx ?? 0];
+  return (question && draft?.answers[question.id]) ?? null;
+}
+
+// After Submit, the same button becomes "Next". A double-click (or a held
+// Enter/Space key repeating) would otherwise land on it straight away and
+// skip the feedback unseen, so clicks this soon after Submit are ignored.
+const NEXT_AFTER_SUBMIT_GUARD_MS = 400;
+
 function CheckIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
@@ -76,11 +90,15 @@ function XIcon({ className }: { className?: string }) {
   );
 }
 
-type OptionState = "idle" | "selected" | "correct" | "wrong" | "dim";
+// "selected" is a pick that hasn't been submitted yet: still changeable, and
+// deliberately carries no correct/wrong signal. "answered" is a submitted
+// answer whose correctness stays hidden (ui.instantFeedback: false).
+type OptionState = "idle" | "selected" | "answered" | "correct" | "wrong" | "dim";
 
 const OPTION_CLASSES: Record<OptionState, string> = {
   idle: "border-border-hairline-strong bg-surface-card text-text-body hover:border-border-hairline-strong hover:bg-surface-hover",
-  selected: "cursor-default border-border-hairline-strong bg-surface-sunken text-text-strong",
+  selected: "border-surface-brand bg-surface-brand-soft text-text-strong",
+  answered: "cursor-default border-border-hairline-strong bg-surface-sunken text-text-strong",
   correct: "cursor-default border-surface-brand bg-surface-brand-soft text-text-accent",
   wrong: "cursor-default border-surface-danger bg-surface-danger-soft text-aa-red-700",
   dim: "cursor-default border-border-hairline bg-surface-card text-text-faint opacity-50",
@@ -88,7 +106,8 @@ const OPTION_CLASSES: Record<OptionState, string> = {
 
 const MARKER_CLASSES: Record<OptionState, string> = {
   idle: "bg-surface-sunken text-text-muted",
-  selected: "bg-surface-ink text-white",
+  selected: "bg-surface-brand text-text-inverse",
+  answered: "bg-surface-ink text-white",
   correct: "bg-surface-brand text-text-inverse",
   wrong: "bg-surface-danger text-text-inverse",
   dim: "bg-surface-sunken text-text-muted",
@@ -102,6 +121,7 @@ function QuestionCard({
   total,
   language,
   picked,
+  committed,
   locked,
   revealCorrectness,
   onPick,
@@ -111,12 +131,14 @@ function QuestionCard({
   total: number;
   language: string | undefined;
   picked: string | undefined;
+  // Whether `picked` is a final, submitted answer. Until then it's only a
+  // highlighted selection: nothing is revealed and the hint stays visible.
+  committed: boolean;
   locked: boolean;
   revealCorrectness: boolean;
   onPick: (optionId: string) => void;
 }) {
   const contentDir = language === "ar" ? "rtl" : "ltr";
-  const answered = Boolean(picked);
   const isRight = picked === question.correctOptionId;
 
   return (
@@ -131,7 +153,7 @@ function QuestionCard({
         <div dir={contentDir} className="text-left text-lg leading-snug font-bold text-text-strong text-pretty">
           {question.prompt}
         </div>
-        {question.hint && !answered && (
+        {question.hint && !committed && (
           <div dir={contentDir} className="text-left text-sm leading-relaxed text-text-muted">
             {question.hint}
           </div>
@@ -141,16 +163,18 @@ function QuestionCard({
       <div dir={contentDir} className="flex flex-col gap-3">
         {question.options.map((option, optIndex) => {
           let state: OptionState = "idle";
-          if (answered) {
+          if (committed) {
             if (revealCorrectness) {
               if (option.id === question.correctOptionId) state = "correct";
               else if (option.id === picked) state = "wrong";
               else state = "dim";
             } else {
-              state = option.id === picked ? "selected" : "dim";
+              state = option.id === picked ? "answered" : "dim";
             }
+          } else if (option.id === picked) {
+            state = "selected";
           }
-          const disabled = locked && answered;
+          const disabled = locked && committed;
 
           return (
             <button
@@ -171,7 +195,7 @@ function QuestionCard({
         })}
       </div>
 
-      {answered && revealCorrectness && (
+      {committed && revealCorrectness && (
         <div
           className={`rounded-card-inner border-l-4 bg-surface-sunken p-4 ${
             isRight ? "border-surface-brand" : "border-surface-danger"
@@ -333,6 +357,14 @@ function QuizFlow({ quiz, user }: { quiz: LiveQuizRow; user: User }) {
   const [answers, setAnswers] = useState<Record<string, string>>(
     () => loadDraft(user.id, quiz.id)?.answers ?? {},
   );
+  // One question at a time: picking an option only sets selectedOption.
+  // Nothing is recorded, scored or revealed until Submit flips isSubmitted.
+  // Kept as two separate states on purpose. Seeded from the draft so a reload
+  // or pause after Submit (but before Next) lands back on that question's
+  // revealed feedback rather than an empty one.
+  const [selectedOption, setSelectedOption] = useState<string | null>(() => recordedAnswerAt(user.id, quiz));
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(selectedOption !== null);
+  const submittedAtRef = useRef(0);
   const [reviewMode, setReviewMode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -361,10 +393,27 @@ function QuizFlow({ quiz, user }: { quiz: LiveQuizRow; user: User }) {
     saveDraft(user.id, quiz.id, { idx, answers });
   }, [attempt, idx, answers, quiz.id, user.id]);
 
+  // All-at-once mode: a pick is recorded (and locked per ui.lockAfterAnswer)
+  // straight away, as before.
   function pick(question: QuizQuestion, optionId: string) {
     const alreadyAnswered = Boolean(answers[question.id]);
     if (quiz.quiz_json.ui.lockAfterAnswer && alreadyAnswered) return;
     setAnswers((prev) => ({ ...prev, [question.id]: optionId }));
+  }
+
+  // One-at-a-time mode.
+  function selectOption(optionId: string) {
+    if (isSubmitted) return;
+    setSelectedOption(optionId);
+  }
+
+  // The answer is recorded here (so scoring and the final attempt insert see
+  // it) and the question locks. Idempotent, so it can never record twice.
+  function submitAnswer(question: QuizQuestion) {
+    if (isSubmitted || selectedOption === null) return;
+    setAnswers((prev) => ({ ...prev, [question.id]: selectedOption }));
+    setIsSubmitted(true);
+    submittedAtRef.current = Date.now();
   }
 
   // Flips to the results view immediately (score is already fully computed
@@ -396,8 +445,11 @@ function QuizFlow({ quiz, user }: { quiz: LiveQuizRow; user: User }) {
   }
 
   function goNext(questions: QuizQuestion[]) {
+    if (!isSubmitted || Date.now() - submittedAtRef.current < NEXT_AFTER_SUBMIT_GUARD_MS) return;
     if (idx < questions.length - 1) {
       setIdx((i) => i + 1);
+      setSelectedOption(null);
+      setIsSubmitted(false);
       return;
     }
     void finishQuiz();
@@ -423,6 +475,7 @@ function QuizFlow({ quiz, user }: { quiz: LiveQuizRow; user: User }) {
       total={quizJson.questions.length}
       language={quizJson.language}
       picked={currentAnswers[question.id]}
+      committed={Boolean(currentAnswers[question.id])}
       locked={isReview || ui.lockAfterAnswer}
       revealCorrectness={isReview || ui.instantFeedback}
       onPick={isReview ? () => {} : (optionId) => pick(question, optionId)}
@@ -446,28 +499,42 @@ function QuizFlow({ quiz, user }: { quiz: LiveQuizRow; user: User }) {
     );
   } else if (ui.oneQuestionAtATime) {
     const question = quizJson.questions[idx];
-    const answered = Boolean(answers[question.id]);
     const isLast = idx >= quizJson.questions.length - 1;
+
+    let primaryLabel: string;
+    if (submitting) primaryLabel = "Saving…";
+    else if (!isSubmitted) primaryLabel = "Submit";
+    else if (isLast) primaryLabel = ui.lastQuestionButtonLabel ?? "Finish";
+    else primaryLabel = ui.nextButtonLabel ?? "Next";
 
     content = (
       <div className="flex flex-col gap-4">
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-hairline">
           <div
             className="h-full rounded-full bg-surface-brand transition-[width] duration-300 ease-out"
-            style={{ width: `${Math.round(((answered ? idx + 1 : idx) / quizJson.questions.length) * 100)}%` }}
+            style={{ width: `${Math.round(((isSubmitted ? idx + 1 : idx) / quizJson.questions.length) * 100)}%` }}
           />
         </div>
-        {questionCards(question, idx)}
-        {answered && (
-          <button
-            type="button"
-            onClick={() => goNext(quizJson.questions)}
-            disabled={submitting}
-            className="self-end rounded-control bg-surface-brand px-6 py-3 text-sm font-semibold text-text-inverse transition-transform hover:-translate-y-px disabled:opacity-60"
-          >
-            {submitting ? "Saving…" : isLast ? ui.lastQuestionButtonLabel ?? "Finish" : ui.nextButtonLabel ?? "Next"}
-          </button>
-        )}
+        <QuestionCard
+          key={question.id}
+          question={question}
+          index={idx}
+          total={quizJson.questions.length}
+          language={quizJson.language}
+          picked={selectedOption ?? undefined}
+          committed={isSubmitted}
+          locked
+          revealCorrectness={ui.instantFeedback}
+          onPick={selectOption}
+        />
+        <button
+          type="button"
+          onClick={() => (isSubmitted ? goNext(quizJson.questions) : submitAnswer(question))}
+          disabled={submitting || (!isSubmitted && selectedOption === null)}
+          className="self-end rounded-control bg-surface-brand px-6 py-3 text-sm font-semibold text-text-inverse transition-transform enabled:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {primaryLabel}
+        </button>
       </div>
     );
   } else {
